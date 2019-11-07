@@ -1,0 +1,67 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: cbbf4ad681489962b546534feeeff60b1fecbc8f278af0e9ead50c51bffe70ba
+
+name:           GscInterpreter
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/Github username here/GscInterpreter#readme>
+homepage:       https://github.com/Github username here/GscInterpreter#readme
+bug-reports:    https://github.com/Github username here/GscInterpreter/issues
+author:         Author name here
+maintainer:     Author email here
+copyright:      2019 Author name here
+license:        BSD3
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/Github username here/GscInterpreter
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_GscInterpreter
+  hs-source-dirs:
+      src
+  build-depends:
+      HUnit >=1.6 && <1.7
+    , base >=4.7 && <5
+    , parsec >=3.1.13 && <3.2
+  default-language: Haskell2010
+
+executable GscInterpreter-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_GscInterpreter
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      GscInterpreter
+    , HUnit >=1.6 && <1.7
+    , base >=4.7 && <5
+    , parsec >=3.1.13 && <3.2
+  default-language: Haskell2010
+
+test-suite GscInterpreter-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_GscInterpreter
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      GscInterpreter
+    , HUnit >=1.6 && <1.7
+    , base >=4.7 && <5
+    , parsec >=3.1.13 && <3.2
+  default-language: Haskell2010

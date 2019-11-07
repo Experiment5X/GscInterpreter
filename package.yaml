@@ -21,6 +21,8 @@ description:         Please see the README on GitHub at <https://github.com/Gith
 
 dependencies:
 - base >= 4.7 && < 5
+- parsec >= 3.1.13 && < 3.2
+- HUnit >= 1.6 && < 1.7
 
 library:
   source-dirs: src
