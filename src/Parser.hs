@@ -130,6 +130,7 @@ statement' =   do stmt <- simpleStatement
            <|> whileStmt
            <|> switchStmt
            <|> forStmt
+           <|> foreachStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -186,6 +187,19 @@ forStmt = do reserved "for"
                                               return (asgn, cond, next))
              stmt <- braces statement
              return (ForStmt asgn cond next stmt)
+
+foreachStmt :: Parser Stmt
+foreachStmt = do reserved "foreach"
+                 (vars, expr) <- parens iterateExpr
+                 stmt         <- braces statement
+                 return (ForeachStmt vars expr stmt)
+  where
+    iterateExpr :: Parser ([String], Expr)
+    iterateExpr = do vars <- sepBy1 identifier comma
+                     reserved "in"
+                     expr <- rvalue
+                     return (vars, expr)
+
 
 whileStmt :: Parser Stmt
 whileStmt = do reserved "while"

@@ -27,6 +27,7 @@ languageDef =
                                      , "undefined"
                                      , "for"
                                      , "foreach"
+                                     , "in"
                                      , "switch"
                                      , "case"
                                      , "default"
@@ -93,6 +94,7 @@ data Stmt = Seq [Stmt]
           | CondStructStmt [CondStmt] (Maybe Stmt)
           | WhileStmt Expr Stmt
           | ForStmt Stmt Expr Stmt Stmt
+          | ForeachStmt [String] Expr Stmt
             deriving (Show, Eq)
 
 getOperators reservedOp =
