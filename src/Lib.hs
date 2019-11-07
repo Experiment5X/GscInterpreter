@@ -93,9 +93,11 @@ data Expr = Var LValue
 type LValue = [LValueComp] -- elements are separated by a dot, for digging into objects
 data LValueComp = LValueComp String [Expr] deriving (Show, Eq) -- variable name, and any indices like: []
 
+data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
+
 data Stmt = Seq [Stmt]
           | Assign LValue Expr
-          | If Expr Stmt Stmt
+          | IfStmt [CondStmt] (Maybe Stmt)
           | While Expr Stmt
           | FunctionCallS Expr
             deriving (Show, Eq)
@@ -138,6 +140,7 @@ whiteSpace = Token.whiteSpace    lexer -- parses whitespace
 comma      = Token.comma         lexer -- parses a comma
 brackets   = Token.brackets      lexer -- parses square brackets, []
 dot        = Token.dot           lexer -- parses the dot, .
+braces     = Token.braces        lexer -- parses curly braces {}
 
 
 csvAExpressions :: Parser [Expr]
@@ -228,6 +231,7 @@ sequenceOfStmt = do stmt  <- statement'
 statement' :: Parser Stmt
 statement' =   try assignStmt
            <|> funcCallStmt
+           <|> ifStmt
 
 assignStmt :: Parser Stmt
 assignStmt = do var  <- lvalue
@@ -235,6 +239,23 @@ assignStmt = do var  <- lvalue
                 expr <- rvalue
                 semi
                 return $ Assign var expr
+                
+ifStmt :: Parser Stmt
+ifStmt = do conds <- parseConds False
+            mstmt <- optionMaybe (reserved "else" >> braces statement)
+            return (IfStmt conds mstmt)
+  where
+    parseConds isElif = if isElif
+                           then option [] (try parseStruct)
+                           else parseStruct
+      where 
+        parseStruct :: Parser [CondStmt]
+        parseStruct = do when isElif (reserved "else")
+                         reserved "if"
+                         expr  <- parens expression
+                         stmt  <- braces statement
+                         conds <- parseConds True
+                         return (CondStmt expr stmt : conds)
 
 funcCallStmt :: Parser Stmt
 funcCallStmt = do e <- functionCall
