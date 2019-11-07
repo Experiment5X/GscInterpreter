@@ -90,7 +90,7 @@ data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
 data Stmt = Seq [Stmt]
           | Assign LValue Expr
           | IfStmt [CondStmt] (Maybe Stmt)
-          | While Expr Stmt
+          | WhileStmt Expr Stmt
           | FunctionCallS Expr
             deriving (Show, Eq)
 

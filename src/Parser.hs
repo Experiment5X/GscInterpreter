@@ -124,6 +124,7 @@ statement' :: Parser Stmt
 statement' =   try assignStmt
            <|> funcCallStmt
            <|> ifStmt
+           <|> whileStmt
 
 assignStmt :: Parser Stmt
 assignStmt = do var  <- lvalue
@@ -148,6 +149,12 @@ ifStmt = do conds <- parseConds False
                          stmt  <- braces statement
                          conds <- parseConds True
                          return (CondStmt expr stmt : conds)
+                         
+whileStmt :: Parser Stmt
+whileStmt = do reserved "while"
+               expr <- parens expression
+               stmt <- braces statement
+               return (WhileStmt expr stmt)
 
 funcCallStmt :: Parser Stmt
 funcCallStmt = do e <- functionCall
