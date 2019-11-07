@@ -1,4 +1,4 @@
-module Lib where
+module Parser where
 
 {-
   This is based off this tutorial:
@@ -12,118 +12,9 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import Data.List
+import LanguageStructure
 
-languageDef =
-  emptyDef { Token.commentStart    = "/*"
-           , Token.commentEnd      = "*/"
-           , Token.commentLine     = "//"
-           , Token.identStart      = letter <|> oneOf "_"
-           , Token.identLetter     = alphaNum <|> oneOf "_"
-           , Token.reservedNames   = [ "if"
-                                     , "else"
-                                     , "while"
-                                     , "do"
-                                     , "return"
-                                     --, "wait"
-                                     --, "waittil"
-                                     --, "waittilframeend"
-                                     --, "waittilmatch"
-                                     --, "notify"
-                                     --, "endon"
-                                     --, "assert"
-                                     , "thread"
-                                     , "undefined"
-                                     , "for"
-                                     , "foreach"
-                                     , "switch"
-                                     , "case"
-                                     , "default"
-                                     , "break"
-                                     , "continue"
-                                     , "true"
-                                     , "false"
-                                     ]
-           , Token.reservedOpNames = ["+", "-", "*", "/", "%", "="
-                                     , "<", ">", "&&", "||", "!"
-                                     , "++", "--", "==", "!=", "+="
-                                     , "-=", "*=", "/=", "%=", ">>="
-                                     , "<<=", "&=", "^=", "|="
-                                     , ">>", "<<", "~", "===", "!=="
-                                     , "::" 
-                                     ]
-           }
 
-data BinOp = Add
-            | Subtract
-            | Multiply
-            | Divide
-            | ShiftRight
-            | ShiftLeft
-            | AAnd -- arithmetic
-            | AOr
-            | AXor
-            | BAnd -- boolean
-            | BOr
-            | Greater  -- relational
-            | GreaterEq
-            | Less
-            | LessEq
-            | Equal
-            | NotEqual
-              deriving (Show, Eq)
-
-data FuncName = FuncName [String] String deriving (Show, Eq)
-
-data Expr = Var LValue
-           | IntLit Integer
-           | StringLit String
-           | BoolConst Bool
-           | Neg Expr
-           | ANot Expr
-           | PreInc Expr
-           | PreDec Expr
-           | PostInc Expr
-           | PostDec Expr
-           | Binary BinOp Expr Expr
-           | FunctionCallE (Maybe LValue) Bool FuncName [Expr]
-           | FuncNameE FuncName
-           | BNot Expr
-             deriving (Show, Eq)
-
-type LValue = [LValueComp] -- elements are separated by a dot, for digging into objects
-data LValueComp = LValueComp String [Expr] deriving (Show, Eq) -- variable name, and any indices like: []
-
-data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
-
-data Stmt = Seq [Stmt]
-          | Assign LValue Expr
-          | IfStmt [CondStmt] (Maybe Stmt)
-          | While Expr Stmt
-          | FunctionCallS Expr
-            deriving (Show, Eq)
-
-operators = [ [Prefix (reservedOp "-"   >> return Neg               )
-             ,  Prefix (reservedOp "~"   >> return ANot)
-             ,  Prefix (reservedOp "!" >> return BNot              )]
-             , [Infix  (reservedOp "*"   >> return (Binary Multiply)) AssocLeft,
-                Infix  (reservedOp "/"   >> return (Binary Divide  )) AssocLeft]
-             , [Infix  (reservedOp "+"   >> return (Binary Add     )) AssocLeft,
-                Infix  (reservedOp "-"   >> return (Binary Subtract)) AssocLeft]
-             , [Infix  (reservedOp "^"   >> return (Binary AXor     )) AssocLeft,
-                Infix  (reservedOp "&"   >> return (Binary AAnd)) AssocLeft,
-                Infix  (reservedOp "|"   >> return (Binary AOr)) AssocLeft]
-             , [Infix  (reservedOp "<<"  >> return (Binary ShiftLeft)) AssocLeft,
-                Infix  (reservedOp ">>"  >> return (Binary ShiftRight)) AssocLeft]
-             , [Infix  (reservedOp ">"   >> return (Binary Greater)) AssocLeft
-             ,  Infix  (reservedOp "<"   >> return (Binary Less)) AssocLeft
-             ,  Infix  (reservedOp ">="  >> return (Binary GreaterEq)) AssocLeft
-             ,  Infix  (reservedOp "<="  >> return (Binary LessEq)) AssocLeft
-             ,  Infix  (reservedOp "=="  >> return (Binary Equal)) AssocLeft
-             ,  Infix  (reservedOp "!="  >> return (Binary NotEqual)) AssocLeft]
-             , [Infix  (reservedOp "&&"  >> return (Binary BAnd     )) AssocLeft,
-                Infix  (reservedOp "||"  >> return (Binary BOr     )) AssocLeft]
-               ]
-               
 lexer = Token.makeTokenParser languageDef
 
 identifier = Token.identifier    lexer -- parses an identifier
@@ -142,6 +33,7 @@ brackets   = Token.brackets      lexer -- parses square brackets, []
 dot        = Token.dot           lexer -- parses the dot, .
 braces     = Token.braces        lexer -- parses curly braces {}
 
+operators = getOperators reservedOp
 
 csvAExpressions :: Parser [Expr]
 csvAExpressions = sepBy expression comma
@@ -154,7 +46,7 @@ funcCallContext =   try (do lv <- lvalue
                        return (Just lv, False)
                 <|> do reserved "thread"
                        return (Nothing, True)
-                       
+
 fqFuncName :: Parser FuncName
 fqFuncName = do path  <- sepBy identifier (char '\\')
                 ident <- if null path
@@ -201,7 +93,7 @@ lvalueComponent = LValueComp <$> identifier <*> parseIndices
                         rest <- parseIndices
                         return (expr : rest)
                  <|> return []
-                 
+
 reservedLvalue :: String -> LValue
 reservedLvalue s = [LValueComp s []]
 
@@ -239,7 +131,7 @@ assignStmt = do var  <- lvalue
                 expr <- rvalue
                 semi
                 return $ Assign var expr
-                
+
 ifStmt :: Parser Stmt
 ifStmt = do conds <- parseConds False
             mstmt <- optionMaybe (reserved "else" >> braces statement)
@@ -248,7 +140,7 @@ ifStmt = do conds <- parseConds False
     parseConds isElif = if isElif
                            then option [] (try parseStruct)
                            else parseStruct
-      where 
+      where
         parseStruct :: Parser [CondStmt]
         parseStruct = do when isElif (reserved "else")
                          reserved "if"
