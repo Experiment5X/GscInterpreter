@@ -74,8 +74,7 @@ term =   try functionCall
      <|> parens expression
      <|> fmap Var lvalue
      <|> try (FuncNameE <$> functionName)
-     <|> fmap IntLit integer
-     <|> fmap StringLit stringLit
+     <|> literal
      <|> (reserved "true"  >> return (BoolConst True ))
      <|> (reserved "false" >> return (BoolConst False))
 
@@ -125,6 +124,7 @@ statement' =   try assignStmt
            <|> funcCallStmt
            <|> ifStmt
            <|> whileStmt
+           <|> switchStmt
 
 assignStmt :: Parser Stmt
 assignStmt = do var  <- lvalue
@@ -136,7 +136,7 @@ assignStmt = do var  <- lvalue
 ifStmt :: Parser Stmt
 ifStmt = do conds <- parseConds False
             mstmt <- optionMaybe (reserved "else" >> braces statement)
-            return (IfStmt conds mstmt)
+            return (CondStructStmt conds mstmt)
   where
     parseConds isElif = if isElif
                            then option [] (try parseStruct)
@@ -149,7 +149,32 @@ ifStmt = do conds <- parseConds False
                          stmt  <- braces statement
                          conds <- parseConds True
                          return (CondStmt expr stmt : conds)
-                         
+
+literal :: Parser Expr
+literal =   fmap IntLit integer
+        <|> fmap StringLit stringLit
+
+switchStmt :: Parser Stmt
+switchStmt = do reserved "switch"
+                expr  <- parens expression
+                braces (do conds <- cases expr
+                           mstmt <- optionMaybe default'
+                           return (CondStructStmt conds mstmt))
+  where
+    cases :: Expr -> Parser [CondStmt]
+    cases expr' = do reserved "case"
+                     lit    <- literal
+                     reservedOp ":" 
+                     stmt   <- statement
+                     cases' <- option [] (cases expr')
+                     let cond = Binary Equal expr' lit
+                     return (CondStmt cond stmt : cases')
+                     
+    default' :: Parser Stmt
+    default' = do reserved "default"
+                  reservedOp ":" 
+                  statement
+               
 whileStmt :: Parser Stmt
 whileStmt = do reserved "while"
                expr <- parens expression

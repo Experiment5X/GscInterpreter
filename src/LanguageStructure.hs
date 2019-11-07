@@ -41,7 +41,7 @@ languageDef =
                                      , "-=", "*=", "/=", "%=", ">>="
                                      , "<<=", "&=", "^=", "|="
                                      , ">>", "<<", "~", "===", "!=="
-                                     , "::" 
+                                     , "::", ":"
                                      ]
            }
 
@@ -89,12 +89,12 @@ data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
 
 data Stmt = Seq [Stmt]
           | Assign LValue Expr
-          | IfStmt [CondStmt] (Maybe Stmt)
-          | WhileStmt Expr Stmt
           | FunctionCallS Expr
+          | CondStructStmt [CondStmt] (Maybe Stmt)
+          | WhileStmt Expr Stmt
             deriving (Show, Eq)
 
-getOperators reservedOp = 
+getOperators reservedOp =
             [  [Prefix (reservedOp "-"   >> return Neg               )
              ,  Prefix (reservedOp "~"   >> return ANot)
              ,  Prefix (reservedOp "!"   >> return BNot              )]
