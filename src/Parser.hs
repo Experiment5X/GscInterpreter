@@ -118,20 +118,21 @@ sequenceOfStmt = do stmt  <- statement'
     helper =   try sequenceOfStmt
            <|> return []
 
+simpleStatement :: Parser Stmt
+simpleStatement =   try assignStmt
+                <|> funcCallStmt
 
 statement' :: Parser Stmt
-statement' =   try assignStmt
-           <|> funcCallStmt
+statement' =   do stmt <- simpleStatement
+                  semi
+                  return stmt
            <|> ifStmt
            <|> whileStmt
            <|> switchStmt
+           <|> forStmt
 
 assignStmt :: Parser Stmt
-assignStmt = do var  <- lvalue
-                reservedOp "="
-                expr <- rvalue
-                semi
-                return $ Assign var expr
+assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
 
 ifStmt :: Parser Stmt
 ifStmt = do conds <- parseConds False
@@ -174,7 +175,18 @@ switchStmt = do reserved "switch"
     default' = do reserved "default"
                   reservedOp ":" 
                   statement
-               
+
+forStmt :: Parser Stmt
+forStmt = do reserved "for"
+             (asgn, cond, next) <- parens (do asgn <- assignStmt
+                                              semi
+                                              cond <- expression
+                                              semi
+                                              next <- simpleStatement
+                                              return (asgn, cond, next))
+             stmt <- braces statement
+             return (ForStmt asgn cond next stmt)
+
 whileStmt :: Parser Stmt
 whileStmt = do reserved "while"
                expr <- parens expression
@@ -182,9 +194,7 @@ whileStmt = do reserved "while"
                return (WhileStmt expr stmt)
 
 funcCallStmt :: Parser Stmt
-funcCallStmt = do e <- functionCall
-                  semi
-                  return (FunctionCallS e)
+funcCallStmt = FunctionCallS <$> functionCall
 
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""

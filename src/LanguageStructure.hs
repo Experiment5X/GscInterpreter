@@ -92,6 +92,7 @@ data Stmt = Seq [Stmt]
           | FunctionCallS Expr
           | CondStructStmt [CondStmt] (Maybe Stmt)
           | WhileStmt Expr Stmt
+          | ForStmt Stmt Expr Stmt Stmt
             deriving (Show, Eq)
 
 getOperators reservedOp =
