@@ -135,6 +135,10 @@ statement' =   do stmt <- simpleStatement
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
 
+structureBody :: Parser Stmt
+structureBody =   braces statement
+              <|> statement'
+
 ifStmt :: Parser Stmt
 ifStmt = do conds <- parseConds False
             mstmt <- optionMaybe (reserved "else" >> braces statement)
@@ -148,7 +152,7 @@ ifStmt = do conds <- parseConds False
         parseStruct = do when isElif (reserved "else")
                          reserved "if"
                          expr  <- parens expression
-                         stmt  <- braces statement
+                         stmt  <- structureBody
                          conds <- parseConds True
                          return (CondStmt expr stmt : conds)
 
@@ -185,13 +189,13 @@ forStmt = do reserved "for"
                                               semi
                                               next <- simpleStatement
                                               return (asgn, cond, next))
-             stmt <- braces statement
+             stmt <- structureBody
              return (ForStmt asgn cond next stmt)
 
 foreachStmt :: Parser Stmt
 foreachStmt = do reserved "foreach"
                  (vars, expr) <- parens iterateExpr
-                 stmt         <- braces statement
+                 stmt         <- structureBody
                  return (ForeachStmt vars expr stmt)
   where
     iterateExpr :: Parser ([String], Expr)
