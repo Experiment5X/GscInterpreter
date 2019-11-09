@@ -29,6 +29,8 @@ parseStatementTests =
                     , parseStatementT "foreach (a, b in yolo()) {print(a + b); }" ~?= ForeachStmt ["a","b"] (FunctionCallE Nothing False (FuncName [] "yolo") []) (FunctionCallS (FunctionCallE Nothing False (FuncName [] "print") [Binary Add (Var [LValueComp "a" []]) (Var [LValueComp "b" []])]))
                     , parseStatementT "foreach (a in dir) {print(a); run(a);}" ~?= ForeachStmt ["a"] (Var [LValueComp "dir" []]) (Seq [FunctionCallS (FunctionCallE Nothing False (FuncName [] "print") [Var [LValueComp "a" []]]),FunctionCallS (FunctionCallE Nothing False (FuncName [] "run") [Var [LValueComp "a" []]])])
                     , parseStatementT "foreach (a in \"name\") if (a > 10) print(a);" ~?= ForeachStmt ["a"] (StringLit "name") (CondStructStmt [CondStmt (Binary Greater (Var [LValueComp "a" []]) (IntLit 10)) (FunctionCallS (FunctionCallE Nothing False (FuncName [] "print") [Var [LValueComp "a" []]]))] Nothing)
+                    , parseStatementT "return \"adam\";" ~?= ReturnStmt (StringLit "adam")
+                    , parseStatementT "return helloWorld();" ~?= ReturnStmt (FunctionCallE Nothing False (FuncName [] "helloWorld") [])
                     ]
 
 main :: IO ()

@@ -95,6 +95,7 @@ data Stmt = Seq [Stmt]
           | WhileStmt Expr Stmt
           | ForStmt Stmt Expr Stmt Stmt
           | ForeachStmt [String] Expr Stmt
+          | ReturnStmt Expr
             deriving (Show, Eq)
 
 getOperators reservedOp =

@@ -131,9 +131,16 @@ statement' =   do stmt <- simpleStatement
            <|> switchStmt
            <|> forStmt
            <|> foreachStmt
+           <|> returnStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
+
+returnStmt :: Parser Stmt
+returnStmt = do reserved "return"
+                expr <- expression
+                semi
+                return (ReturnStmt expr)
 
 structureBody :: Parser Stmt
 structureBody =   braces statement
