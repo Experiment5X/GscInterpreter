@@ -36,6 +36,7 @@ languageDef =
                                      , "true"
                                      , "false"
                                      , "include"
+                                     , "using_animtree"
                                      ]
            , Token.reservedOpNames = ["+", "-", "*", "/", "%", "="
                                      , "<", ">", "&&", "||", "!"
@@ -99,6 +100,7 @@ data Stmt = Seq [Stmt]
           | ReturnStmt Expr
           | FunctionDef String [String] Stmt
           | IncludeStmt [String]
+          | UsingAnimTreeStmt String
             deriving (Show, Eq)
 
 getOperators reservedOp =

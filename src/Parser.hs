@@ -133,7 +133,7 @@ statement' =   try (do stmt <- simpleStatement
            <|> foreachStmt
            <|> returnStmt
            <|> funcDefStmt
-           <|> includeStmt
+           <|> preprocessStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -226,13 +226,21 @@ funcDefStmt = do funcName <- identifier
                  stmt     <- braces statement
                  return (FunctionDef funcName args stmt)
 
+preprocessStmt :: Parser Stmt
+preprocessStmt = do reservedOp "#"
+                    includeStmt <|> usingAnimTreeStmt
+
 includeStmt :: Parser Stmt
-includeStmt = do reservedOp "#"
-                 reserved "include"
+includeStmt = do reserved "include"
                  nameComp <- sepBy1 identifier (char '\\')
                  semi
                  return (IncludeStmt nameComp)
-
+                 
+usingAnimTreeStmt :: Parser Stmt
+usingAnimTreeStmt = do reserved "using_animtree"
+                       treeName <- parens stringLit
+                       return (UsingAnimTreeStmt treeName)
+                   
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""
 
