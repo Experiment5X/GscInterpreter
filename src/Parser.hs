@@ -123,15 +123,16 @@ simpleStatement =   try assignStmt
                 <|> funcCallStmt
 
 statement' :: Parser Stmt
-statement' =   do stmt <- simpleStatement
-                  semi
-                  return stmt
+statement' =   try (do stmt <- simpleStatement
+                       semi
+                       return stmt)
            <|> ifStmt
            <|> whileStmt
            <|> switchStmt
            <|> forStmt
            <|> foreachStmt
            <|> returnStmt
+           <|> funcDefStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -218,6 +219,12 @@ whileStmt = do reserved "while"
 
 funcCallStmt :: Parser Stmt
 funcCallStmt = FunctionCallS <$> functionCall
+
+funcDefStmt :: Parser Stmt
+funcDefStmt = do funcName <- identifier
+                 args     <- parens (option [] (sepBy identifier comma))
+                 stmt     <- braces statement
+                 return (FunctionDef funcName args stmt)
 
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""

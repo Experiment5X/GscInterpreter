@@ -31,6 +31,8 @@ parseStatementTests =
                     , parseStatementT "foreach (a in \"name\") if (a > 10) print(a);" ~?= ForeachStmt ["a"] (StringLit "name") (CondStructStmt [CondStmt (Binary Greater (Var [LValueComp "a" []]) (IntLit 10)) (FunctionCallS (FunctionCallE Nothing False (FuncName [] "print") [Var [LValueComp "a" []]]))] Nothing)
                     , parseStatementT "return \"adam\";" ~?= ReturnStmt (StringLit "adam")
                     , parseStatementT "return helloWorld();" ~?= ReturnStmt (FunctionCallE Nothing False (FuncName [] "helloWorld") [])
+                    , parseStatementT "yolo() { return \"yolo\"; }" ~?= FunctionDef "yolo" [] (ReturnStmt (StringLit "yolo"))
+                    , parseStatementT "add(a, b) {return a + b; }" ~?= FunctionDef "add" ["a","b"] (ReturnStmt (Binary Add (Var [LValueComp "a" []]) (Var [LValueComp "b" []])))
                     ]
 
 main :: IO ()
