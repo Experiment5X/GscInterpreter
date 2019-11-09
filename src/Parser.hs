@@ -189,14 +189,12 @@ forStmt = do reserved "for"
                                               semi
                                               next <- simpleStatement
                                               return (asgn, cond, next))
-             stmt <- structureBody
-             return (ForStmt asgn cond next stmt)
+             ForStmt asgn cond next <$> structureBody
 
 foreachStmt :: Parser Stmt
 foreachStmt = do reserved "foreach"
                  (vars, expr) <- parens iterateExpr
-                 stmt         <- structureBody
-                 return (ForeachStmt vars expr stmt)
+                 ForeachStmt vars expr <$> structureBody
   where
     iterateExpr :: Parser ([String], Expr)
     iterateExpr = do vars <- sepBy1 identifier comma
