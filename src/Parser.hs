@@ -123,7 +123,6 @@ simpleStatement =   try assignStmt
                 <|> funcCallStmt
 
 statement' :: Parser Stmt
-
 statement' =   preprocessStmt
            <|> try (do stmt <- simpleStatement
                        semi
