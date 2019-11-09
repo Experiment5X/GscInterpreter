@@ -79,6 +79,7 @@ data Expr = Var LValue
            | PreDec Expr
            | PostInc Expr
            | PostDec Expr
+           | PreProc Expr
            | Binary BinOp Expr Expr
            | FunctionCallE (Maybe LValue) Bool FuncName [Expr]
            | FuncNameE FuncName
@@ -106,7 +107,8 @@ data Stmt = Seq [Stmt]
 getOperators reservedOp =
             [  [Prefix (reservedOp "-"   >> return Neg               )
              ,  Prefix (reservedOp "~"   >> return ANot)
-             ,  Prefix (reservedOp "!"   >> return BNot              )]
+             ,  Prefix (reservedOp "!"   >> return BNot              )
+             ,  Prefix (reservedOp "#"   >> return PreProc           )]
              , [Infix  (reservedOp "*"   >> return (Binary Multiply)) AssocLeft,
                 Infix  (reservedOp "/"   >> return (Binary Divide  )) AssocLeft]
              , [Infix  (reservedOp "+"   >> return (Binary Add     )) AssocLeft,

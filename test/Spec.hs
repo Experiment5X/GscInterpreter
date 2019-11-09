@@ -36,6 +36,7 @@ parseStatementTests =
                     , parseStatementT "#include animscripts\\Utility;" ~?= IncludeStmt ["animscripts","Utility"]
                     , parseStatementT "#include maps\\mp\\gametypes\\_hud_util;" ~?= IncludeStmt ["maps","mp","gametypes","_hud_util"]
                     , parseStatementT "#using_animtree( \"generic_human\" );" ~?= UsingAnimTreeStmt "generic_human"
+                    , parseStatementT "self UseAnimTree( #animtree );" ~?= FunctionCallS (FunctionCallE (Just [LValueComp "self" []]) False (FuncName [] "UseAnimTree") [PreProc (Var [LValueComp "animtree" []])])
                     ]
 
 main :: IO ()

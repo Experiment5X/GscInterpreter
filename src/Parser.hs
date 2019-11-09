@@ -123,7 +123,9 @@ simpleStatement =   try assignStmt
                 <|> funcCallStmt
 
 statement' :: Parser Stmt
-statement' =   try (do stmt <- simpleStatement
+
+statement' =   preprocessStmt
+           <|> try (do stmt <- simpleStatement
                        semi
                        return stmt)
            <|> ifStmt
@@ -133,7 +135,6 @@ statement' =   try (do stmt <- simpleStatement
            <|> foreachStmt
            <|> returnStmt
            <|> funcDefStmt
-           <|> preprocessStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
