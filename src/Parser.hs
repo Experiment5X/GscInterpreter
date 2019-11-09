@@ -133,6 +133,7 @@ statement' =   try (do stmt <- simpleStatement
            <|> foreachStmt
            <|> returnStmt
            <|> funcDefStmt
+           <|> includeStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -210,7 +211,6 @@ foreachStmt = do reserved "foreach"
                      expr <- rvalue
                      return (vars, expr)
 
-
 whileStmt :: Parser Stmt
 whileStmt = do reserved "while"
                expr <- parens expression
@@ -225,6 +225,13 @@ funcDefStmt = do funcName <- identifier
                  args     <- parens (option [] (sepBy identifier comma))
                  stmt     <- braces statement
                  return (FunctionDef funcName args stmt)
+
+includeStmt :: Parser Stmt
+includeStmt = do reservedOp "#"
+                 reserved "include"
+                 nameComp <- sepBy1 identifier (char '\\')
+                 semi
+                 return (IncludeStmt nameComp)
 
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""

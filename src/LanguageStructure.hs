@@ -35,6 +35,7 @@ languageDef =
                                      , "continue"
                                      , "true"
                                      , "false"
+                                     , "include"
                                      ]
            , Token.reservedOpNames = ["+", "-", "*", "/", "%", "="
                                      , "<", ">", "&&", "||", "!"
@@ -42,7 +43,7 @@ languageDef =
                                      , "-=", "*=", "/=", "%=", ">>="
                                      , "<<=", "&=", "^=", "|="
                                      , ">>", "<<", "~", "===", "!=="
-                                     , "::", ":"
+                                     , "::", ":", "#"
                                      ]
            }
 
@@ -97,6 +98,7 @@ data Stmt = Seq [Stmt]
           | ForeachStmt [String] Expr Stmt
           | ReturnStmt Expr
           | FunctionDef String [String] Stmt
+          | IncludeStmt [String]
             deriving (Show, Eq)
 
 getOperators reservedOp =

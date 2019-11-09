@@ -33,6 +33,8 @@ parseStatementTests =
                     , parseStatementT "return helloWorld();" ~?= ReturnStmt (FunctionCallE Nothing False (FuncName [] "helloWorld") [])
                     , parseStatementT "yolo() { return \"yolo\"; }" ~?= FunctionDef "yolo" [] (ReturnStmt (StringLit "yolo"))
                     , parseStatementT "add(a, b) {return a + b; }" ~?= FunctionDef "add" ["a","b"] (ReturnStmt (Binary Add (Var [LValueComp "a" []]) (Var [LValueComp "b" []])))
+                    , parseStatementT "#include animscripts\\Utility;" ~?= IncludeStmt ["animscripts","Utility"]
+                    , parseStatementT "#include maps\\mp\\gametypes\\_hud_util;" ~?= IncludeStmt ["maps","mp","gametypes","_hud_util"]
                     ]
 
 main :: IO ()
