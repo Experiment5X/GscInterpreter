@@ -41,6 +41,7 @@ parseStatementTests =
                     , parseStatementT "precacheString( &\"ELEVATOR_CALL_HINT\" );" ~?= FunctionCallS (FunctionCallE Nothing False (LValue (Qualifier []) [LValueComp "precacheString" []]) [RefStringLit "ELEVATOR_CALL_HINT"])
                     , parseStatementT "j = i++;" ~?= Assign (LValue (Qualifier []) [LValueComp "j" []]) (PostInc (Var (LValue (Qualifier []) [LValueComp "i" []])))
                     , parseStatementT "j = --i;" ~?= Assign (LValue (Qualifier []) [LValueComp "j" []]) (PreDec (Var (LValue (Qualifier []) [LValueComp "i" []])))
+                    , parseStatementT "self.additiveTurretIdle = %saw_gunner_prone_idle_mg;" ~?= Assign (LValue (Qualifier []) [LValueComp "self" [],LValueComp "additiveTurretIdle" []]) (AnimRef (Var (LValue (Qualifier []) [LValueComp "saw_gunner_prone_idle_mg" []])))
                     ]
 
 main :: IO ()

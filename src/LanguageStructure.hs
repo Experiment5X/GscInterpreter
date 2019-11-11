@@ -81,6 +81,7 @@ data Expr = Var LValue
            | PostInc Expr
            | PostDec Expr
            | PreProc Expr
+           | AnimRef Expr
            | Binary BinOp Expr Expr
            | FunctionCallE (Maybe LValue) Bool LValue [Expr]
            | FuncNameE Qualifier
@@ -110,6 +111,7 @@ getOperators reservedOp =
              ,  Prefix  (reservedOp "~"   >> return ANot)
              ,  Prefix  (reservedOp "!"   >> return BNot              )
              ,  Prefix  (reservedOp "#"   >> return PreProc           )
+             ,  Prefix  (reservedOp "%"   >> return AnimRef           )
              ,  Prefix  (reservedOp "++"  >> return PreInc            )
              ,  Prefix  (reservedOp "--"  >> return PreDec            )
              ,  Postfix (reservedOp "++"  >> return PostInc           )
