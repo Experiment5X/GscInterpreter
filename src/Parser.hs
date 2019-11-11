@@ -104,10 +104,10 @@ statement = do whiteSpace
                      else return (Seq stmts)
 
 skipAllWhitespace :: Parser ()
-skipAllWhitespace = optional (   (whiteSpace >> possiblyContinue space  )
-                             <|> (whiteSpace >> possiblyContinue tab    )
-                             <|> (whiteSpace >> possiblyContinue newline)
-                             <|> (whiteSpace >> possiblyContinue (char '\r')))
+skipAllWhitespace =   (whiteSpace >> possiblyContinue space  )
+                  <|> (whiteSpace >> possiblyContinue tab    )
+                  <|> (whiteSpace >> possiblyContinue newline)
+                  <|> (whiteSpace >> possiblyContinue (char '\r'))
   where
     possiblyContinue ch = do mc <- optionMaybe ch
                              case mc of
