@@ -67,7 +67,7 @@ data BinOp = Add
             | NotEqual
               deriving (Show, Eq)
 
-data FuncName = FuncName [String] String deriving (Show, Eq)
+newtype Qualifier = Qualifier [String] deriving (Show, Eq)
 
 data Expr = Var LValue
            | IntLit Integer
@@ -81,13 +81,13 @@ data Expr = Var LValue
            | PostDec Expr
            | PreProc Expr
            | Binary BinOp Expr Expr
-           | FunctionCallE (Maybe LValue) Bool FuncName [Expr]
-           | FuncNameE FuncName
+           | FunctionCallE (Maybe LValue) Bool LValue [Expr]
+           | FuncNameE Qualifier
            | BNot Expr
              deriving (Show, Eq)
 
-type LValue = [LValueComp] -- elements are separated by a dot, for digging into objects
-data LValueComp = LValueComp String [Expr] deriving (Show, Eq) -- variable name, and any indices like: []
+data LValue = LValue Qualifier [LValueComp] deriving (Show, Eq) -- elements are separated by a dot, for digging into objects
+data LValueComp = LValueComp String [Expr] deriving (Show, Eq)  -- variable name, and any indices like: []
 
 data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
 

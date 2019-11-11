@@ -35,8 +35,8 @@ braces     = Token.braces        lexer -- parses curly braces {}
 
 operators = getOperators reservedOp
 
-csvAExpressions :: Parser [Expr]
-csvAExpressions = sepBy expression comma
+csvExpressions :: Parser [Expr]
+csvExpressions = sepBy expression comma
 
 funcCallContext :: Parser (Maybe LValue, Bool)
 funcCallContext =   try (do lv <- lvalue
@@ -47,33 +47,27 @@ funcCallContext =   try (do lv <- lvalue
                 <|> do reserved "thread"
                        return (Nothing, True)
 
-fqFuncName :: Parser FuncName
-fqFuncName = do path  <- sepBy identifier (char '\\')
-                ident <- if null path
-                            then identifier
-                            else reservedOp "::" >> identifier
-                return (FuncName path ident)
-
-functionName :: Parser FuncName
-functionName =   try fqFuncName
-             <|> (reservedOp "::" >> plainName)
-             <|> plainName
-  where
-    plainName = FuncName [] <$> identifier
+qualifier :: Parser Qualifier
+qualifier =   try (do path  <- sepBy1 identifier (char '\\')
+                      reservedOp "::"
+                      return (Qualifier path))
+               
+          <|> do reservedOp "::"
+                 return (Qualifier [])
+          <|> return (Qualifier [])
 
 functionCall :: Parser Expr
 functionCall =   try (do (mlv, async) <- funcCallContext
                          helper mlv async)
              <|> helper Nothing False
   where
-    helper mlv' async' = do f     <- functionName
-                            exprs <- parens csvAExpressions
-                            return (FunctionCallE mlv' async' f exprs)
+    helper mlv' async' = do lv    <- lvalue
+                            exprs <- parens csvExpressions
+                            return (FunctionCallE mlv' async' lv exprs)
 
 term =   try functionCall
      <|> parens expression
      <|> fmap Var lvalue
-     <|> try (FuncNameE <$> functionName)
      <|> literal
      <|> (reserved "true"  >> return (BoolConst True ))
      <|> (reserved "false" >> return (BoolConst False))
@@ -93,12 +87,10 @@ lvalueComponent = LValueComp <$> identifier <*> parseIndices
                         return (expr : rest)
                  <|> return []
 
-reservedLvalue :: String -> LValue
-reservedLvalue s = [LValueComp s []]
-
-
 lvalue :: Parser LValue
-lvalue = sepBy1 lvalueComponent dot
+lvalue = do q     <- qualifier
+            comps <- sepBy1 lvalueComponent dot
+            return (LValue q comps)
 
 statement :: Parser Stmt
 statement = do whiteSpace
