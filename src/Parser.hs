@@ -25,7 +25,7 @@ parens     = Token.parens        lexer -- parses surrounding parenthesis:
                                        -- takes care of the parenthesis and
                                        -- uses p to parse what's inside them
 integer    = Token.integer       lexer -- parses an integer
-float      = Token.float       lexer -- parses an integer
+float      = Token.float         lexer -- parses an integer
 stringLit  = Token.stringLiteral lexer
 semi       = Token.semi          lexer -- parses a semicolon
 whiteSpace = Token.whiteSpace    lexer -- parses whitespace
@@ -171,8 +171,16 @@ ifStmt = do conds <- parseConds False
                          conds <- parseConds True
                          return (CondStmt expr stmt : conds)
 
+floatStartDec :: Parser Double
+floatStartDec = do dot
+                   fract <- integer
+                   let digits = length (show fract)
+                       value  = (fromIntegral fract :: Double) * 10.0 ** (-fromIntegral digits :: Double)
+                   return value
+
 literal :: Parser Expr
-literal =   fmap FloatLit (try float)
+literal =   fmap FloatLit (try floatStartDec)
+        <|> fmap FloatLit (try float)
         <|> fmap IntLit integer
         <|> fmap StringLit stringLit
         <|> refStringLit
@@ -204,13 +212,13 @@ switchStmt = do reserved "switch"
 
 forStmt :: Parser Stmt
 forStmt = do reserved "for"
-             (asgn, cond, next) <- parens (do asgn <- assignStmt
-                                              semi
-                                              cond <- expression
-                                              semi
-                                              next <- simpleStatement
-                                              return (asgn, cond, next))
-             ForStmt asgn cond next <$> structureBody
+             (masgn, cond, mnext) <- parens (do masgn <- optionMaybe assignStmt
+                                                semi
+                                                cond  <- option (IntLit 1) expression
+                                                semi
+                                                mnext <- optionMaybe simpleStatement
+                                                return (masgn, cond, mnext))
+             ForStmt masgn cond mnext <$> structureBody
 
 foreachStmt :: Parser Stmt
 foreachStmt = do reserved "foreach"

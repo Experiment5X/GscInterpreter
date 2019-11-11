@@ -99,7 +99,7 @@ data Stmt = Seq [Stmt]
           | FunctionCallS Expr
           | CondStructStmt [CondStmt] (Maybe Stmt)
           | WhileStmt Expr Stmt
-          | ForStmt Stmt Expr Stmt Stmt
+          | ForStmt (Maybe Stmt) Expr (Maybe Stmt) Stmt
           | ForeachStmt [String] Expr Stmt
           | ReturnStmt (Maybe Expr)
           | FunctionDef String [String] Stmt
