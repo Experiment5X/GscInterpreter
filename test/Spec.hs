@@ -11,6 +11,7 @@ parseStatementT s = case parseStatement s of
 parseStatementTests :: Test
 parseStatementTests =
            TestList [ parseStatementT "a = b[1];" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (Var (LValue (Qualifier []) [LValueComp "b" [IntLit 1]]))
+                    , parseStatementT "a = 0.5;" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (FloatLit 0.5)
                     , parseStatementT "yo = other\\module::var;" ~?= Assign (LValue (Qualifier []) [LValueComp "yo" []]) (Var (LValue (Qualifier ["other","module"]) [LValueComp "var" []]))
                     , parseStatementT "awardXp = self.pers[\"killstreaks\"][0].awardXp;" ~?= Assign (LValue (Qualifier []) [LValueComp "awardXp" []]) (Var (LValue (Qualifier []) [LValueComp "self" [],LValueComp "pers" [StringLit "killstreaks",IntLit 0],LValueComp "awardXp" []]))
                     , parseStatementT "maps\\mp\\gametypes\\_rank::registerScoreInfo( \"killstreak_\" + streakRef, streakPoints );" ~?= FunctionCallS (FunctionCallE Nothing False (LValue (Qualifier ["maps","mp","gametypes","_rank"]) [LValueComp "registerScoreInfo" []]) [Binary Add (StringLit "killstreak_") (Var (LValue (Qualifier []) [LValueComp "streakRef" []])),Var (LValue (Qualifier []) [LValueComp "streakPoints" []])])

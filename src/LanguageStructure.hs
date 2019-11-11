@@ -71,6 +71,7 @@ newtype Qualifier = Qualifier [String] deriving (Show, Eq)
 
 data Expr = Var LValue
            | IntLit Integer
+           | FloatLit Double
            | StringLit String
            | RefStringLit String
            | BoolConst Bool

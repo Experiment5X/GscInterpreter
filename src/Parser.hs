@@ -25,6 +25,7 @@ parens     = Token.parens        lexer -- parses surrounding parenthesis:
                                        -- takes care of the parenthesis and
                                        -- uses p to parse what's inside them
 integer    = Token.integer       lexer -- parses an integer
+float      = Token.float       lexer -- parses an integer
 stringLit  = Token.stringLiteral lexer
 semi       = Token.semi          lexer -- parses a semicolon
 whiteSpace = Token.whiteSpace    lexer -- parses whitespace
@@ -171,7 +172,8 @@ ifStmt = do conds <- parseConds False
                          return (CondStmt expr stmt : conds)
 
 literal :: Parser Expr
-literal =   fmap IntLit integer
+literal =   fmap FloatLit (try float)
+        <|> fmap IntLit integer
         <|> fmap StringLit stringLit
         <|> refStringLit
 
