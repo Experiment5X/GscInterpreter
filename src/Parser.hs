@@ -103,10 +103,15 @@ statement = do whiteSpace
                      else return (Seq stmts)
 
 skipAllWhitespace :: Parser ()
-skipAllWhitespace = optional ((space     >> optional skipAllWhitespace)
-                          <|> (tab       >> optional skipAllWhitespace)
-                          <|> (newline   >> optional skipAllWhitespace)
-                          <|> (char '\r' >> optional skipAllWhitespace))
+skipAllWhitespace = optional (   (whiteSpace >> possiblyContinue space  )
+                             <|> (whiteSpace >> possiblyContinue tab    )
+                             <|> (whiteSpace >> possiblyContinue newline)
+                             <|> (whiteSpace >> possiblyContinue (char '\r')))
+  where
+    possiblyContinue ch = do mc <- optionMaybe ch
+                             case mc of
+                               Nothing  -> return ()
+                               (Just _) -> skipAllWhitespace
 
 sequenceOfStmt :: Parser [Stmt]
 sequenceOfStmt = do skipAllWhitespace
@@ -140,9 +145,9 @@ assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
 
 returnStmt :: Parser Stmt
 returnStmt = do reserved "return"
-                expr <- expression
+                mexpr <- optionMaybe expression
                 semi
-                return (ReturnStmt expr)
+                return (ReturnStmt mexpr)
 
 structureBody :: Parser Stmt
 structureBody =   braces statement
@@ -150,7 +155,7 @@ structureBody =   braces statement
 
 ifStmt :: Parser Stmt
 ifStmt = do conds <- parseConds False
-            mstmt <- optionMaybe (reserved "else" >> braces statement)
+            mstmt <- optionMaybe (reserved "else" >> structureBody)
             return (CondStructStmt conds mstmt)
   where
     parseConds isElif = if isElif
@@ -273,3 +278,4 @@ fgsc :: IO ()
 fgsc = do putStr "fgsc> "
           fname <- getLine
           parseFile fname
+          fgsc

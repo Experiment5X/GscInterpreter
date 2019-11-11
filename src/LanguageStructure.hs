@@ -100,7 +100,7 @@ data Stmt = Seq [Stmt]
           | WhileStmt Expr Stmt
           | ForStmt Stmt Expr Stmt Stmt
           | ForeachStmt [String] Expr Stmt
-          | ReturnStmt Expr
+          | ReturnStmt (Maybe Expr)
           | FunctionDef String [String] Stmt
           | IncludeStmt [String]
           | UsingAnimTreeStmt String
