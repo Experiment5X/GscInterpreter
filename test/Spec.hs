@@ -39,6 +39,8 @@ parseStatementTests =
                     , parseStatementT "#using_animtree( \"generic_human\" );" ~?= UsingAnimTreeStmt "generic_human"
                     , parseStatementT "self UseAnimTree( #animtree );" ~?= FunctionCallS (FunctionCallE (Just (LValue (Qualifier []) [LValueComp "self" []])) False (LValue (Qualifier []) [LValueComp "UseAnimTree" []]) [PreProc (Var (LValue (Qualifier []) [LValueComp "animtree" []]))])
                     , parseStatementT "precacheString( &\"ELEVATOR_CALL_HINT\" );" ~?= FunctionCallS (FunctionCallE Nothing False (LValue (Qualifier []) [LValueComp "precacheString" []]) [RefStringLit "ELEVATOR_CALL_HINT"])
+                    , parseStatementT "j = i++;" ~?= Assign (LValue (Qualifier []) [LValueComp "j" []]) (PostInc (Var (LValue (Qualifier []) [LValueComp "i" []])))
+                    , parseStatementT "j = --i;" ~?= Assign (LValue (Qualifier []) [LValueComp "j" []]) (PreDec (Var (LValue (Qualifier []) [LValueComp "i" []])))
                     ]
 
 main :: IO ()

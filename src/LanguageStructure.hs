@@ -106,26 +106,30 @@ data Stmt = Seq [Stmt]
             deriving (Show, Eq)
 
 getOperators reservedOp =
-            [  [Prefix (reservedOp "-"   >> return Neg               )
-             ,  Prefix (reservedOp "~"   >> return ANot)
-             ,  Prefix (reservedOp "!"   >> return BNot              )
-             ,  Prefix (reservedOp "#"   >> return PreProc           )]
-             , [Infix  (reservedOp "*"   >> return (Binary Multiply)) AssocLeft,
-                Infix  (reservedOp "/"   >> return (Binary Divide  )) AssocLeft]
-             , [Infix  (reservedOp "+"   >> return (Binary Add     )) AssocLeft,
-                Infix  (reservedOp "-"   >> return (Binary Subtract)) AssocLeft]
-             , [Infix  (reservedOp "^"   >> return (Binary AXor     )) AssocLeft,
-                Infix  (reservedOp "&"   >> return (Binary AAnd)) AssocLeft,
-                Infix  (reservedOp "|"   >> return (Binary AOr)) AssocLeft]
-             , [Infix  (reservedOp "<<"  >> return (Binary ShiftLeft)) AssocLeft,
-                Infix  (reservedOp ">>"  >> return (Binary ShiftRight)) AssocLeft]
-             , [Infix  (reservedOp ">"   >> return (Binary Greater)) AssocLeft
-             ,  Infix  (reservedOp "<"   >> return (Binary Less)) AssocLeft
-             ,  Infix  (reservedOp ">="  >> return (Binary GreaterEq)) AssocLeft
-             ,  Infix  (reservedOp "<="  >> return (Binary LessEq)) AssocLeft
-             ,  Infix  (reservedOp "=="  >> return (Binary Equal)) AssocLeft
-             ,  Infix  (reservedOp "!="  >> return (Binary NotEqual)) AssocLeft]
-             , [Infix  (reservedOp "&&"  >> return (Binary BAnd     )) AssocLeft,
-                Infix  (reservedOp "||"  >> return (Binary BOr     )) AssocLeft]
+            [  [Prefix  (reservedOp "-"   >> return Neg               )
+             ,  Prefix  (reservedOp "~"   >> return ANot)
+             ,  Prefix  (reservedOp "!"   >> return BNot              )
+             ,  Prefix  (reservedOp "#"   >> return PreProc           )
+             ,  Prefix  (reservedOp "++"  >> return PreInc            )
+             ,  Prefix  (reservedOp "--"  >> return PreDec            )
+             ,  Postfix (reservedOp "++"  >> return PostInc           )
+             ,  Postfix (reservedOp "--"  >> return PostDec           )]
+             , [Infix   (reservedOp "*"   >> return (Binary Multiply)) AssocLeft,
+                Infix   (reservedOp "/"   >> return (Binary Divide  )) AssocLeft]
+             , [Infix   (reservedOp "+"   >> return (Binary Add     )) AssocLeft,
+                Infix   (reservedOp "-"   >> return (Binary Subtract)) AssocLeft]
+             , [Infix   (reservedOp "^"   >> return (Binary AXor     )) AssocLeft,
+                Infix   (reservedOp "&"   >> return (Binary AAnd)) AssocLeft,
+                Infix   (reservedOp "|"   >> return (Binary AOr)) AssocLeft]
+             , [Infix   (reservedOp "<<"  >> return (Binary ShiftLeft)) AssocLeft,
+                Infix   (reservedOp ">>"  >> return (Binary ShiftRight)) AssocLeft]
+             , [Infix   (reservedOp ">"   >> return (Binary Greater)) AssocLeft
+             ,  Infix   (reservedOp "<"   >> return (Binary Less)) AssocLeft
+             ,  Infix   (reservedOp ">="  >> return (Binary GreaterEq)) AssocLeft
+             ,  Infix   (reservedOp "<="  >> return (Binary LessEq)) AssocLeft
+             ,  Infix   (reservedOp "=="  >> return (Binary Equal)) AssocLeft
+             ,  Infix   (reservedOp "!="  >> return (Binary NotEqual)) AssocLeft]
+             , [Infix   (reservedOp "&&"  >> return (Binary BAnd     )) AssocLeft,
+                Infix   (reservedOp "||"  >> return (Binary BOr     )) AssocLeft]
                ]
 
