@@ -160,6 +160,11 @@ ifStmt = do conds <- parseConds False
 literal :: Parser Expr
 literal =   fmap IntLit integer
         <|> fmap StringLit stringLit
+        <|> refStringLit
+        
+refStringLit :: Parser Expr
+refStringLit = do reservedOp "&"
+                  RefStringLit <$> stringLit
 
 switchStmt :: Parser Stmt
 switchStmt = do reserved "switch"

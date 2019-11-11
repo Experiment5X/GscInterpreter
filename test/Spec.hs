@@ -38,6 +38,7 @@ parseStatementTests =
                     , parseStatementT "#include maps\\mp\\gametypes\\_hud_util;" ~?= IncludeStmt ["maps","mp","gametypes","_hud_util"]
                     , parseStatementT "#using_animtree( \"generic_human\" );" ~?= UsingAnimTreeStmt "generic_human"
                     , parseStatementT "self UseAnimTree( #animtree );" ~?= FunctionCallS (FunctionCallE (Just (LValue (Qualifier []) [LValueComp "self" []])) False (LValue (Qualifier []) [LValueComp "UseAnimTree" []]) [PreProc (Var (LValue (Qualifier []) [LValueComp "animtree" []]))])
+                    , parseStatementT "precacheString( &\"ELEVATOR_CALL_HINT\" );" ~?= FunctionCallS (FunctionCallE Nothing False (LValue (Qualifier []) [LValueComp "precacheString" []]) [RefStringLit "ELEVATOR_CALL_HINT"])
                     ]
 
 main :: IO ()
