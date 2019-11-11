@@ -51,7 +51,7 @@ qualifier :: Parser Qualifier
 qualifier =   try (do path  <- sepBy1 identifier (char '\\')
                       reservedOp "::"
                       return (Qualifier path))
-               
+
           <|> do reservedOp "::"
                  return (Qualifier [])
           <|> return (Qualifier [])
@@ -102,8 +102,16 @@ statement = do whiteSpace
                      then return (head stmts)
                      else return (Seq stmts)
 
+skipAllWhitespace :: Parser ()
+skipAllWhitespace = optional ((space     >> optional skipAllWhitespace)
+                          <|> (tab       >> optional skipAllWhitespace)
+                          <|> (newline   >> optional skipAllWhitespace)
+                          <|> (char '\r' >> optional skipAllWhitespace))
+
 sequenceOfStmt :: Parser [Stmt]
-sequenceOfStmt = do stmt  <- statement'
+sequenceOfStmt = do skipAllWhitespace
+                    stmt  <- statement'
+                    skipAllWhitespace
                     stmts <- helper
                     return (stmt : stmts)
   where
@@ -161,7 +169,7 @@ literal :: Parser Expr
 literal =   fmap IntLit integer
         <|> fmap StringLit stringLit
         <|> refStringLit
-        
+
 refStringLit :: Parser Expr
 refStringLit = do reservedOp "&"
                   RefStringLit <$> stringLit
@@ -232,14 +240,26 @@ includeStmt = do reserved "include"
                  nameComp <- sepBy1 identifier (char '\\')
                  semi
                  return (IncludeStmt nameComp)
-                 
+
 usingAnimTreeStmt :: Parser Stmt
 usingAnimTreeStmt = do reserved "using_animtree"
                        treeName <- parens stringLit
+                       semi
                        return (UsingAnimTreeStmt treeName)
-                   
+
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""
+
+parseStatements :: String -> Either ParseError [Stmt]
+parseStatements = parse sequenceOfStmt ""
+
+parseFile :: String -> IO ()
+parseFile fname = do hFile    <- openFile fname ReadMode
+                     contents <- hGetContents hFile
+                     case parseStatements contents of
+                       (Left e)     -> print e
+                       (Right asts) -> print asts
+
 
 gsc :: IO ()
 gsc = do putStr "gsc> "
@@ -248,3 +268,8 @@ gsc = do putStr "gsc> "
            (Left e)    -> print e
            (Right ast) -> print ast
          gsc
+
+fgsc :: IO ()
+fgsc = do putStr "fgsc> "
+          fname <- getLine
+          parseFile fname
