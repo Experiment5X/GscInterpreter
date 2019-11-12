@@ -186,10 +186,14 @@ literal =   fmap FloatLit (try floatStartDec)
         <|> fmap IntLit integer
         <|> fmap StringLit stringLit
         <|> refStringLit
+        <|> listLiteral
 
 refStringLit :: Parser Expr
 refStringLit = do reservedOp "&"
                   RefStringLit <$> stringLit
+
+listLiteral :: Parser Expr
+listLiteral = ListLit <$> brackets (sepBy expression comma)
 
 switchStmt :: Parser Stmt
 switchStmt = do reserved "switch"

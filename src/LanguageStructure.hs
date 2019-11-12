@@ -74,6 +74,7 @@ data Expr = Var LValue
            | FloatLit Double
            | StringLit String
            | RefStringLit String
+           | ListLit [Expr]
            | BoolConst Bool
            | Neg Expr
            | ANot Expr
