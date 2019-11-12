@@ -139,6 +139,8 @@ statement' =   preprocessStmt
            <|> forStmt
            <|> foreachStmt
            <|> returnStmt
+           <|> (reserved "break" >> semi >> return Break)
+           <|> (reserved "continue" >> semi >> return Continue)
            <|> funcDefStmt
 
 assignStmt :: Parser Stmt

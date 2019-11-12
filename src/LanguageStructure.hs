@@ -102,6 +102,8 @@ data Stmt = Seq [Stmt]
           | ForStmt (Maybe Stmt) Expr (Maybe Stmt) Stmt
           | ForeachStmt [String] Expr Stmt
           | ReturnStmt (Maybe Expr)
+          | Continue
+          | Break
           | FunctionDef String [String] Stmt
           | IncludeStmt [String]
           | UsingAnimTreeStmt String
