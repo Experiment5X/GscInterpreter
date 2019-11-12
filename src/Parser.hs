@@ -126,6 +126,7 @@ sequenceOfStmt = do skipAllWhitespace
 
 simpleStatement :: Parser Stmt
 simpleStatement =   try assignStmt
+                <|> try assignExprStmt
                 <|> funcCallStmt
 
 statement' :: Parser Stmt
@@ -145,6 +146,15 @@ statement' =   preprocessStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
+
+assignExprStmt :: Parser Stmt
+assignExprStmt = do expr <- expression
+                    case expr of
+                      (PostInc e) -> return (AssignExprStmt (PostInc e))
+                      (PostDec e) -> return (AssignExprStmt (PostDec e))
+                      (PreInc e)  -> return (AssignExprStmt (PreInc e))
+                      (PreDec e)  -> return (AssignExprStmt (PreDec e))
+                      _           -> fail "Expected statement, found expression."
 
 returnStmt :: Parser Stmt
 returnStmt = do reserved "return"

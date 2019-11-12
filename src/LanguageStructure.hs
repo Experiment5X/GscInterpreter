@@ -98,6 +98,7 @@ data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
 
 data Stmt = Seq [Stmt]
           | Assign LValue Expr
+          | AssignExprStmt Expr -- for things like: i++, --i, x -= 6, etc.
           | FunctionCallS Expr
           | CondStructStmt [CondStmt] (Maybe Stmt)
           | WhileStmt Expr Stmt
