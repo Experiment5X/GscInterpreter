@@ -5,7 +5,7 @@ import Parser
 
 parseStatementT :: String -> Stmt
 parseStatementT s = case parseStatement s of
-                      (Left _)  -> error "parse error"
+                      (Left _)  -> error ("parse error: " ++ s)
                       (Right e) -> e
 
 parseStatementTests :: Test
@@ -15,6 +15,7 @@ parseStatementTests =
                     , parseStatementT "a = [];" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (ListLit [])
                     , parseStatementT "a = [1,2,3];" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (ListLit [IntLit 1,IntLit 2,IntLit 3])
                     , parseStatementT "a = [f(), 1, 0.3, \"adam\"];" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (ListLit [FunctionCallE Nothing False (LValue (Qualifier []) [LValueComp "f" []]) [],IntLit 1,FloatLit 0.3,StringLit "adam"])
+                    , parseStatementT "a = (1,2,3);" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (Vec3Lit (IntLit 1) (IntLit 2) (IntLit 3))
                     , parseStatementT "yo = other\\module::var;" ~?= Assign (LValue (Qualifier []) [LValueComp "yo" []]) (Var (LValue (Qualifier ["other","module"]) [LValueComp "var" []]))
                     , parseStatementT "awardXp = self.pers[\"killstreaks\"][0].awardXp;" ~?= Assign (LValue (Qualifier []) [LValueComp "awardXp" []]) (Var (LValue (Qualifier []) [LValueComp "self" [],LValueComp "pers" [StringLit "killstreaks",IntLit 0],LValueComp "awardXp" []]))
                     , parseStatementT "maps\\mp\\gametypes\\_rank::registerScoreInfo( \"killstreak_\" + streakRef, streakPoints );" ~?= FunctionCallS (FunctionCallE Nothing False (LValue (Qualifier ["maps","mp","gametypes","_rank"]) [LValueComp "registerScoreInfo" []]) [Binary Add (StringLit "killstreak_") (Var (LValue (Qualifier []) [LValueComp "streakRef" []])),Var (LValue (Qualifier []) [LValueComp "streakPoints" []])])

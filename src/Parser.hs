@@ -67,7 +67,7 @@ functionCall =   try (do (mlv, async) <- funcCallContext
                             return (FunctionCallE mlv' async' lv exprs)
 
 term =   try functionCall
-     <|> parens expression
+     <|> try (parens expression)
      <|> fmap Var lvalue
      <|> literal
      <|> (reserved "true"  >> return (BoolConst True ))
@@ -187,10 +187,19 @@ literal =   fmap FloatLit (try floatStartDec)
         <|> fmap StringLit stringLit
         <|> refStringLit
         <|> listLiteral
+        <|> vec3Literal
 
 refStringLit :: Parser Expr
 refStringLit = do reservedOp "&"
                   RefStringLit <$> stringLit
+                  
+vec3Literal :: Parser Expr
+vec3Literal = do parens (do e1 <- expression
+                            comma
+                            e2 <- expression
+                            comma
+                            e3 <- expression
+                            return (Vec3Lit e1 e2 e3))
 
 listLiteral :: Parser Expr
 listLiteral = ListLit <$> brackets (sepBy expression comma)
