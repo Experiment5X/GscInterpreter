@@ -160,10 +160,12 @@ sequenceOfFileStmt =   do skipAllWhitespace
                           return (stmt : stmts)
                    <|> (eof >> return [])
 
+-- here I should parse an lvalue, and then try to parse the rest of it
 simpleStatement :: Parser Stmt
 simpleStatement =   try assignStmt
                 <|> try assignExprStmt
-                <|> funcCallStmt
+                <|> try funcCallStmt
+                <|> updateExprStmt
 
 statement' :: Parser Stmt
 statement' =   preprocessStmt
@@ -178,10 +180,9 @@ statement' =   preprocessStmt
            <|> returnStmt
            <|> (reserved "break" >> semi >> return Break)
            <|> (reserved "continue" >> semi >> return Continue)
-           <|> try funcDefStmt
            <|> debugBlockStmt
            <|> waitStmt
-           <|> updateExprStmt
+           <|> funcDefStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -205,11 +206,7 @@ updateExprStmt =   updateExpr "+=" PlusEquals
                <|> updateExpr "|=" OrEquals
                <|> updateExpr "^=" XorEquals
   where
-    updateExpr op tc = do lv   <- lvalue
-                          reservedOp op
-                          expr <- rvalue
-                          semi
-                          return (tc lv expr)
+    updateExpr op tc = tc <$> lvalue <*> (reservedOp op >> rvalue)
 
 
 debugBlockStmt :: Parser Stmt
