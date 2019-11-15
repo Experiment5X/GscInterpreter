@@ -194,7 +194,7 @@ assignExprStmt = do expr <- expression
                       (PreInc e)  -> return (AssignExprStmt (PreInc e))
                       (PreDec e)  -> return (AssignExprStmt (PreDec e))
                       _           -> fail "Expected statement, found expression."
-                      
+
 updateExprStmt :: Parser Stmt
 updateExprStmt =   updateExpr "+=" PlusEquals
                <|> updateExpr "-=" MinusEquals
@@ -210,7 +210,7 @@ updateExprStmt =   updateExpr "+=" PlusEquals
                           expr <- rvalue
                           semi
                           return (tc lv expr)
-                      
+
 
 debugBlockStmt :: Parser Stmt
 debugBlockStmt = DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement
@@ -294,7 +294,7 @@ switchStmt = do reserved "switch"
                lit <- literal
                reservedOp ":"
                return lit
-    
+
     cases :: Expr -> Parser [CondStmt]
     cases expr' = do lits   <- many1 case'
                      stmt   <- statement
@@ -339,7 +339,7 @@ funcCallStmt = FunctionCallS <$> functionCall
 funcDefStmt :: Parser Stmt
 funcDefStmt = do funcName <- identifier
                  args     <- parens (option [] (sepBy identifier comma))
-                 stmt     <- braces statement
+                 stmt     <- braces (option (Seq []) statement)
                  return (FunctionDef funcName args stmt)
 
 preprocessStmt :: Parser Stmt

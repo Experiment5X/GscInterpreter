@@ -46,6 +46,7 @@ parseStatementTests =
                     , parseStatementT "return helloWorld();" ~?= ReturnStmt (Just (FunctionCallE Nothing False (Left (LValue (Qualifier []) [LValueComp "helloWorld" []])) []))
                     , parseStatementT "/# a = 5; #/" ~?= DebugBlock (Assign (LValue (Qualifier []) [LValueComp "a" []]) (IntLit 5))
                     , parseStatementT "yolo() { return \"yolo\"; }" ~?= FunctionDef "yolo" [] (ReturnStmt (Just (StringLit "yolo")))
+                    , parseStatementT "f() {}" ~?= FunctionDef "f" [] (Seq [])
                     , parseStatementT "add(a, b) {return a + b; }" ~?= FunctionDef "add" ["a","b"] (ReturnStmt (Just (Binary Add (Var (LValue (Qualifier []) [LValueComp "a" []])) (Var (LValue (Qualifier []) [LValueComp "b" []])))))
                     , parseStatementT "ent [[ level.func_updatefx ]]();" ~?= FunctionCallS (FunctionCallE (Just (LValue (Qualifier []) [LValueComp "ent" []])) False (Right (FuncDereference (LValue (Qualifier []) [LValueComp "level" [],LValueComp "func_updatefx" []]))) [])
                     , parseStatementT "P = self [[ level._pipes._pipe_methods[ type ] ]]( P, type );" ~?= Assign (LValue (Qualifier []) [LValueComp "P" []]) (FunctionCallE (Just (LValue (Qualifier []) [LValueComp "self" []])) False (Right (FuncDereference (LValue (Qualifier []) [LValueComp "level" [],LValueComp "_pipes" [],LValueComp "_pipe_methods" [Var (LValue (Qualifier []) [LValueComp "type" []])]]))) [Var (LValue (Qualifier []) [LValueComp "P" []]),Var (LValue (Qualifier []) [LValueComp "type" []])])
