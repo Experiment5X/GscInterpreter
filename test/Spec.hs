@@ -17,6 +17,7 @@ parseStatementTests =
                     , parseStatementT "a = [1,2,3];" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (ListLit [IntLit 1,IntLit 2,IntLit 3])
                     , parseStatementT "a = [f(), 1, 0.3, \"adam\"];" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (ListLit [FunctionCallE Nothing False (Left (LValue (Qualifier []) [LValueComp "f" []])) [],IntLit 1,FloatLit 0.3,StringLit "adam"])
                     , parseStatementT "a = (1,2,3);" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (Vec3Lit (IntLit 1) (IntLit 2) (IntLit 3))
+                    , parseStatementT "a += f();" ~?= PlusEquals (LValue (Qualifier []) [LValueComp "a" []]) (FunctionCallE Nothing False (Left (LValue (Qualifier []) [LValueComp "f" []])) [])
                     , parseStatementT "--index;" ~?= AssignExprStmt (PreDec (Var (LValue (Qualifier []) [LValueComp "index" []])))
                     , parseStatementT "yo = other\\module::var;" ~?= Assign (LValue (Qualifier []) [LValueComp "yo" []]) (Var (LValue (Qualifier ["other","module"]) [LValueComp "var" []]))
                     , parseStatementT "awardXp = self.pers[\"killstreaks\"][0].awardXp;" ~?= Assign (LValue (Qualifier []) [LValueComp "awardXp" []]) (Var (LValue (Qualifier []) [LValueComp "self" [],LValueComp "pers" [StringLit "killstreaks",IntLit 0],LValueComp "awardXp" []]))

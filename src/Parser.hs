@@ -178,9 +178,10 @@ statement' =   preprocessStmt
            <|> returnStmt
            <|> (reserved "break" >> semi >> return Break)
            <|> (reserved "continue" >> semi >> return Continue)
-           <|> funcDefStmt
+           <|> try funcDefStmt
            <|> debugBlockStmt
            <|> waitStmt
+           <|> updateExprStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -193,6 +194,23 @@ assignExprStmt = do expr <- expression
                       (PreInc e)  -> return (AssignExprStmt (PreInc e))
                       (PreDec e)  -> return (AssignExprStmt (PreDec e))
                       _           -> fail "Expected statement, found expression."
+                      
+updateExprStmt :: Parser Stmt
+updateExprStmt =   updateExpr "+=" PlusEquals
+               <|> updateExpr "-=" MinusEquals
+               <|> updateExpr "*=" TimesEquals
+               <|> updateExpr "/=" DivideEquals
+               <|> updateExpr "%=" ModEquals
+               <|> updateExpr "&=" AndEquals
+               <|> updateExpr "|=" OrEquals
+               <|> updateExpr "^=" XorEquals
+  where
+    updateExpr op tc = do lv   <- lvalue
+                          reservedOp op
+                          expr <- rvalue
+                          semi
+                          return (tc lv expr)
+                      
 
 debugBlockStmt :: Parser Stmt
 debugBlockStmt = DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement
@@ -313,10 +331,7 @@ foreachStmt = do reserved "foreach"
                      return (vars, expr)
 
 whileStmt :: Parser Stmt
-whileStmt = do reserved "while"
-               expr <- parens expression
-               stmt <- braces statement
-               return (WhileStmt expr stmt)
+whileStmt = WhileStmt <$> (reserved "while" >> parens expression) <*> structureBody
 
 funcCallStmt :: Parser Stmt
 funcCallStmt = FunctionCallS <$> functionCall

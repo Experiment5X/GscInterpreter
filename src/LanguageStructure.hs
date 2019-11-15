@@ -53,6 +53,7 @@ data BinOp = Add
             | Subtract
             | Multiply
             | Divide
+            | Modulus
             | ShiftRight
             | ShiftLeft
             | AAnd -- arithmetic
@@ -101,7 +102,7 @@ data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
 
 data Stmt = Seq [Stmt]
           | Assign LValue Expr
-          | AssignExprStmt Expr -- for things like: i++, --i, x -= 6, etc.
+          | AssignExprStmt Expr -- for things like: i++, --i
           | FunctionCallS Expr
           | CondStructStmt [CondStmt] (Maybe Stmt)
           | WhileStmt Expr Stmt
@@ -116,6 +117,14 @@ data Stmt = Seq [Stmt]
           | DebugBlock Stmt
           | WaitStmt Expr
           | WaittillFrameEndStmt
+          | PlusEquals LValue Expr
+          | MinusEquals LValue Expr
+          | TimesEquals LValue Expr
+          | DivideEquals LValue Expr
+          | ModEquals LValue Expr
+          | AndEquals LValue Expr
+          | OrEquals LValue Expr
+          | XorEquals LValue Expr
             deriving (Show, Eq)
 
 getOperators reservedOp =
@@ -132,6 +141,7 @@ getOperators reservedOp =
                 Infix   (reservedOp "/"   >> return (Binary Divide  )) AssocLeft]
              , [Infix   (reservedOp "+"   >> return (Binary Add     )) AssocLeft,
                 Infix   (reservedOp "-"   >> return (Binary Subtract)) AssocLeft]
+             , [Infix   (reservedOp "%"   >> return (Binary Modulus )) AssocLeft]
              , [Infix   (reservedOp "^"   >> return (Binary AXor     )) AssocLeft,
                 Infix   (reservedOp "&"   >> return (Binary AAnd)) AssocLeft,
                 Infix   (reservedOp "|"   >> return (Binary AOr)) AssocLeft]
