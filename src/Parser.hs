@@ -141,6 +141,7 @@ statement' =   preprocessStmt
            <|> (reserved "break" >> semi >> return Break)
            <|> (reserved "continue" >> semi >> return Continue)
            <|> funcDefStmt
+           <|> debugBlockStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -153,6 +154,9 @@ assignExprStmt = do expr <- expression
                       (PreInc e)  -> return (AssignExprStmt (PreInc e))
                       (PreDec e)  -> return (AssignExprStmt (PreDec e))
                       _           -> fail "Expected statement, found expression."
+                      
+debugBlockStmt :: Parser Stmt
+debugBlockStmt = DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement
 
 returnStmt :: Parser Stmt
 returnStmt = do reserved "return"

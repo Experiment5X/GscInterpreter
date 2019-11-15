@@ -44,7 +44,7 @@ languageDef =
                                      , "-=", "*=", "/=", "%=", ">>="
                                      , "<<=", "&=", "^=", "|="
                                      , ">>", "<<", "~", "===", "!=="
-                                     , "::", ":", "#"
+                                     , "::", ":", "#", "/#", "#/"
                                      ]
            }
 
@@ -110,6 +110,7 @@ data Stmt = Seq [Stmt]
           | FunctionDef String [String] Stmt
           | IncludeStmt [String]
           | UsingAnimTreeStmt String
+          | DebugBlock Stmt
             deriving (Show, Eq)
 
 getOperators reservedOp =

@@ -42,6 +42,7 @@ parseStatementTests =
                     , parseStatementT "break;" ~?= Break
                     , parseStatementT "continue;" ~?= Continue
                     , parseStatementT "return helloWorld();" ~?= ReturnStmt (Just (FunctionCallE Nothing False (LValue (Qualifier []) [LValueComp "helloWorld" []]) []))
+                    , parseStatementT "/# a = 5; #/" ~?= DebugBlock (Assign (LValue (Qualifier []) [LValueComp "a" []]) (IntLit 5))
                     , parseStatementT "yolo() { return \"yolo\"; }" ~?= FunctionDef "yolo" [] (ReturnStmt (Just (StringLit "yolo")))
                     , parseStatementT "add(a, b) {return a + b; }" ~?= FunctionDef "add" ["a","b"] (ReturnStmt (Just (Binary Add (Var (LValue (Qualifier []) [LValueComp "a" []])) (Var (LValue (Qualifier []) [LValueComp "b" []])))))
                     , parseStatementT "#include animscripts\\Utility;" ~?= IncludeStmt ["animscripts","Utility"]
