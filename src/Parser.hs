@@ -57,33 +57,62 @@ qualifier =   try (do path  <- sepBy1 identifier (char '\\')
                  return (Qualifier [])
           <|> return (Qualifier [])
 
+funcDereference :: Parser FuncDereference
+funcDereference = FuncDereference <$> between (reservedOp "[[") (reservedOp "]]") lvalue
+
+eitherLvalueOrFuncDeref :: Parser (Either LValue FuncDereference)
+eitherLvalueOrFuncDeref = (Left <$> lvalue) <|> (Right <$> funcDereference)
+
 functionCall :: Parser Expr
 functionCall =   try (do (mlv, async) <- funcCallContext
                          helper mlv async)
              <|> helper Nothing False
   where
-    helper mlv' async' = do lv    <- lvalue
+    helper mlv' async' = do elvfd <- eitherLvalueOrFuncDeref
                             exprs <- parens csvExpressions
-                            return (FunctionCallE mlv' async' lv exprs)
+                            return (FunctionCallE mlv' async' elvfd exprs)
 
+term :: Parser Expr
 term =   try functionCall
      <|> try (parens expression)
      <|> fmap Var lvalue
      <|> literal
 
+termIndex :: Parser Expr
+termIndex = try functionCall
+          <|> try (parens expressionIndex)
+          <|> fmap Var lvalue
+          <|> fmap FloatLit (try floatStartDec)
+          <|> fmap FloatLit (try float)
+          <|> fmap IntLit integer
+          <|> fmap StringLit stringLit
+          <|> (reserved "true"  >> return (BoolLit True ))
+          <|> (reserved "false" >> return (BoolLit False))
+          <|> refStringLit
+
 expression :: Parser Expr
 expression = buildExpressionParser operators term
+
+expressionIndex :: Parser Expr
+expressionIndex = buildExpressionParser operators termIndex
 
 rvalue :: Parser Expr
 rvalue =   expression
        <|> term
 
+-- rvalues that are allowed inside indices []
+-- definitely not an ideal solution, but need to be able to support the function
+-- dereference operator, object [[ my_func ]](), which could be parsed as object[ [my_func] ]()
+rvalueIndex :: Parser Expr
+rvalueIndex =   expressionIndex
+            <|> termIndex
+
 lvalueComponent :: Parser LValueComp
 lvalueComponent = LValueComp <$> identifier <*> parseIndices
   where
-    parseIndices =   do expr <- brackets rvalue
-                        rest <- parseIndices
-                        return (expr : rest)
+    parseIndices =  try(do expr <- brackets rvalueIndex
+                           rest <- parseIndices
+                           return (expr : rest))
                  <|> return []
 
 lvalue :: Parser LValue
@@ -121,6 +150,14 @@ sequenceOfStmt = do skipAllWhitespace
   where
     helper =   try sequenceOfStmt
            <|> return []
+
+
+sequenceOfStmt2 :: Parser [Stmt]
+sequenceOfStmt2 = do skipAllWhitespace
+                     stmt  <- statement'
+                     skipAllWhitespace
+                     stmts <- sequenceOfStmt2
+                     return (stmt : stmts)
 
 simpleStatement :: Parser Stmt
 simpleStatement =   try assignStmt
@@ -303,7 +340,7 @@ parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""
 
 parseStatements :: String -> Either ParseError [Stmt]
-parseStatements = parse sequenceOfStmt ""
+parseStatements = parse sequenceOfStmt2 ""
 
 parseFile :: String -> IO ()
 parseFile fname = do hFile    <- openFile fname ReadMode

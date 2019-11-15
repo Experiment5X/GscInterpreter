@@ -45,6 +45,7 @@ languageDef =
                                      , "<<=", "&=", "^=", "|="
                                      , ">>", "<<", "~", "===", "!=="
                                      , "::", ":", "#", "/#", "#/"
+                                     , "[[", "]]"
                                      ]
            }
 
@@ -69,6 +70,8 @@ data BinOp = Add
 
 newtype Qualifier = Qualifier [String] deriving (Show, Eq)
 
+newtype FuncDereference = FuncDereference LValue deriving (Show, Eq)
+
 data Expr = Var LValue
            | IntLit Integer
            | FloatLit Double
@@ -86,7 +89,7 @@ data Expr = Var LValue
            | PreProc Expr
            | AnimRef Expr
            | Binary BinOp Expr Expr
-           | FunctionCallE (Maybe LValue) Bool LValue [Expr]
+           | FunctionCallE (Maybe LValue) Bool (Either LValue FuncDereference) [Expr]
            | FuncNameE Qualifier
            | BNot Expr
              deriving (Show, Eq)
