@@ -152,12 +152,13 @@ sequenceOfStmt = do skipAllWhitespace
            <|> return []
 
 
-sequenceOfStmt2 :: Parser [Stmt]
-sequenceOfStmt2 = do skipAllWhitespace
-                     stmt  <- statement'
-                     skipAllWhitespace
-                     stmts <- sequenceOfStmt2
-                     return (stmt : stmts)
+sequenceOfFileStmt :: Parser [Stmt]
+sequenceOfFileStmt =   do skipAllWhitespace
+                          stmt  <- statement'
+                          skipAllWhitespace
+                          stmts <- sequenceOfFileStmt
+                          return (stmt : stmts)
+                   <|> (eof >> return [])
 
 simpleStatement :: Parser Stmt
 simpleStatement =   try assignStmt
@@ -339,13 +340,13 @@ usingAnimTreeStmt = do reserved "using_animtree"
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""
 
-parseStatements :: String -> Either ParseError [Stmt]
-parseStatements = parse sequenceOfStmt2 ""
+parseFileStatements :: String -> Either ParseError [Stmt]
+parseFileStatements = parse sequenceOfFileStmt ""
 
 parseFile :: String -> IO ()
 parseFile fname = do hFile    <- openFile fname ReadMode
                      contents <- hGetContents hFile
-                     case parseStatements contents of
+                     case parseFileStatements contents of
                        (Left e)     -> print e
                        (Right asts) -> print asts
 
