@@ -199,16 +199,21 @@ assignExprStmt = do expr <- expression
                       _           -> fail "Expected statement, found expression."
 
 updateExprStmt :: Parser Stmt
-updateExprStmt =   updateExpr "+=" PlusEquals
-               <|> updateExpr "-=" MinusEquals
-               <|> updateExpr "*=" TimesEquals
-               <|> updateExpr "/=" DivideEquals
-               <|> updateExpr "%=" ModEquals
-               <|> updateExpr "&=" AndEquals
-               <|> updateExpr "|=" OrEquals
-               <|> updateExpr "^=" XorEquals
+updateExprStmt = do lv <- lvalue
+                    updateExprAll lv
   where
-    updateExpr op tc = tc <$> lvalue <*> (reservedOp op >> rvalue)
+    updateExprAll :: LValue -> Parser Stmt
+    updateExprAll lv =   updateExpr lv "+=" PlusEquals
+                     <|> updateExpr lv "-=" MinusEquals
+                     <|> updateExpr lv "*=" TimesEquals
+                     <|> updateExpr lv "/=" DivideEquals
+                     <|> updateExpr lv "%=" ModEquals
+                     <|> updateExpr lv "&=" AndEquals
+                     <|> updateExpr lv "|=" OrEquals
+                     <|> updateExpr lv "^=" XorEquals 
+    updateExpr lv op tc = do reservedOp op
+                             expr <- rvalue
+                             return (tc lv expr)
 
 
 debugBlockStmt :: Parser Stmt
