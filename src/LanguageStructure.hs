@@ -76,7 +76,7 @@ data Expr = Var LValue
            | RefStringLit String
            | ListLit [Expr]
            | Vec3Lit Expr Expr Expr
-           | BoolConst Bool
+           | BoolLit Bool
            | Neg Expr
            | ANot Expr
            | PreInc Expr

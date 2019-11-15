@@ -70,8 +70,6 @@ term =   try functionCall
      <|> try (parens expression)
      <|> fmap Var lvalue
      <|> literal
-     <|> (reserved "true"  >> return (BoolConst True ))
-     <|> (reserved "false" >> return (BoolConst False))
 
 expression :: Parser Expr
 expression = buildExpressionParser operators term
@@ -195,6 +193,8 @@ literal =   fmap FloatLit (try floatStartDec)
         <|> fmap FloatLit (try float)
         <|> fmap IntLit integer
         <|> fmap StringLit stringLit
+        <|> (reserved "true"  >> return (BoolLit True ))
+        <|> (reserved "false" >> return (BoolLit False))
         <|> refStringLit
         <|> listLiteral
         <|> vec3Literal
