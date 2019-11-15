@@ -20,6 +20,7 @@ lexer = Token.makeTokenParser languageDef
 identifier = Token.identifier    lexer -- parses an identifier
 reserved   = Token.reserved      lexer -- parses a reserved name
 reservedOp = Token.reservedOp    lexer -- parses an operator
+operator   = Token.reservedOp    lexer -- parses an operator without checking if its a prefix
 parens     = Token.parens        lexer -- parses surrounding parenthesis:
                                        --   parens p
                                        -- takes care of the parenthesis and
@@ -31,6 +32,7 @@ semi       = Token.semi          lexer -- parses a semicolon
 whiteSpace = Token.whiteSpace    lexer -- parses whitespace
 comma      = Token.comma         lexer -- parses a comma
 brackets   = Token.brackets      lexer -- parses square brackets, []
+colon      = Token.colon         lexer -- parses a colon, :
 dot        = Token.dot           lexer -- parses the dot, .
 braces     = Token.braces        lexer -- parses curly braces {}
 
@@ -289,7 +291,7 @@ switchStmt = do reserved "switch"
     case' :: Parser Expr
     case' = do reserved "case"
                lit <- literal
-               reservedOp ":"
+               colon
                return lit
 
     cases :: Expr -> Parser [CondStmt]
@@ -303,7 +305,7 @@ switchStmt = do reserved "switch"
                      
     default' :: Parser Stmt
     default' = do reserved "default"
-                  reservedOp ":" 
+                  colon
                   statement
 
 forStmt :: Parser Stmt
