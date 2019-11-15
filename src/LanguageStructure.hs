@@ -16,9 +16,9 @@ languageDef =
                                      , "while"
                                      , "do"
                                      , "return"
-                                     --, "wait"
+                                     , "wait"
                                      --, "waittil"
-                                     --, "waittilframeend"
+                                     , "waittillframeend"
                                      --, "waittilmatch"
                                      --, "notify"
                                      --, "endon"
@@ -111,6 +111,8 @@ data Stmt = Seq [Stmt]
           | IncludeStmt [String]
           | UsingAnimTreeStmt String
           | DebugBlock Stmt
+          | WaitStmt Expr
+          | WaittillFrameEndStmt
             deriving (Show, Eq)
 
 getOperators reservedOp =

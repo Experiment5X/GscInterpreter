@@ -142,6 +142,7 @@ statement' =   preprocessStmt
            <|> (reserved "continue" >> semi >> return Continue)
            <|> funcDefStmt
            <|> debugBlockStmt
+           <|> waitStmt
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
@@ -154,7 +155,7 @@ assignExprStmt = do expr <- expression
                       (PreInc e)  -> return (AssignExprStmt (PreInc e))
                       (PreDec e)  -> return (AssignExprStmt (PreDec e))
                       _           -> fail "Expected statement, found expression."
-                      
+
 debugBlockStmt :: Parser Stmt
 debugBlockStmt = DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement
 
@@ -163,6 +164,13 @@ returnStmt = do reserved "return"
                 mexpr <- optionMaybe expression
                 semi
                 return (ReturnStmt mexpr)
+
+waitStmt :: Parser Stmt
+waitStmt =   do reserved "wait"
+                expr <- expression
+                semi
+                return (WaitStmt expr)
+         <|> (reserved "waittillframeend" >> semi >> return WaittillFrameEndStmt)
 
 structureBody :: Parser Stmt
 structureBody =   braces statement
