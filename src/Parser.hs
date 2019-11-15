@@ -271,14 +271,20 @@ switchStmt = do reserved "switch"
                            mstmt <- optionMaybe default'
                            return (CondStructStmt conds mstmt))
   where
+    case' :: Parser Expr
+    case' = do reserved "case"
+               lit <- literal
+               reservedOp ":"
+               return lit
+    
     cases :: Expr -> Parser [CondStmt]
-    cases expr' = do reserved "case"
-                     lit    <- literal
-                     reservedOp ":" 
+    cases expr' = do lits   <- many1 case'
                      stmt   <- statement
                      cases' <- option [] (cases expr')
-                     let cond = Binary Equal expr' lit
+                     let cond = foldr makeMultCases (BoolLit False) lits
                      return (CondStmt cond stmt : cases')
+      where
+        makeMultCases lit = Binary BOr (Binary Equal lit expr')
                      
     default' :: Parser Stmt
     default' = do reserved "default"
