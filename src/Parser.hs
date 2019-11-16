@@ -74,11 +74,31 @@ functionCall =   try (do (mlv, async) <- funcCallContext
                             exprs <- parens csvExpressions
                             return (FunctionCallE mlv' async' elvfd exprs)
 
+rvalue :: Parser Expr
+rvalue =   functionCall
+       <|> literal
+
 term :: Parser Expr
-term =   try functionCall
+term =   try rvalueExpr
      <|> try (parens expression)
      <|> fmap Var lvalue
-     <|> literal
+
+rvalueExpr :: Parser Expr
+rvalueExpr = do rv    <- rvalue
+                is    <- parseIndices
+                comps <- option [] trailingObjs
+                if null is && null comps
+                   then return rv
+                   else return (RValueExpr rv is comps)
+  where
+    trailingObjs = do dot
+                      sepBy1 lvalueComponent dot
+                
+
+value :: Parser Expr
+value =   expression
+      <|> term
+
 
 termIndex :: Parser Expr
 termIndex = try functionCall
@@ -98,24 +118,22 @@ expression = buildExpressionParser operators term
 expressionIndex :: Parser Expr
 expressionIndex = buildExpressionParser operators termIndex
 
-rvalue :: Parser Expr
-rvalue =   expression
-       <|> term
 
--- rvalues that are allowed inside indices []
+-- values that are allowed inside indices []
 -- definitely not an ideal solution, but need to be able to support the function
 -- dereference operator, object [[ my_func ]](), which could be parsed as object[ [my_func] ]()
-rvalueIndex :: Parser Expr
-rvalueIndex =   expressionIndex
+valueIndex :: Parser Expr
+valueIndex =   expressionIndex
             <|> termIndex
+
+parseIndices :: Parser [Expr]
+parseIndices =  try(do expr <- brackets valueIndex
+                       rest <- parseIndices
+                       return (expr : rest))
+             <|> return []
 
 lvalueComponent :: Parser LValueComp
 lvalueComponent = LValueComp <$> identifier <*> parseIndices
-  where
-    parseIndices =  try(do expr <- brackets rvalueIndex
-                           rest <- parseIndices
-                           return (expr : rest))
-                 <|> return []
 
 lvalue :: Parser LValue
 lvalue = do q     <- qualifier
@@ -187,7 +205,7 @@ statement' =   preprocessStmt
            <|> funcDefStmt
 
 assignStmt :: Parser Stmt
-assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> rvalue)
+assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> value)
 
 assignExprStmt :: Parser Stmt
 assignExprStmt = do expr <- expression
@@ -210,9 +228,9 @@ updateExprStmt = do lv <- lvalue
                      <|> updateExpr lv "%=" ModEquals
                      <|> updateExpr lv "&=" AndEquals
                      <|> updateExpr lv "|=" OrEquals
-                     <|> updateExpr lv "^=" XorEquals 
+                     <|> updateExpr lv "^=" XorEquals
     updateExpr lv op tc = do reservedOp op
-                             expr <- rvalue
+                             expr <- value
                              return (tc lv expr)
 
 
@@ -331,7 +349,7 @@ foreachStmt = do reserved "foreach"
     iterateExpr :: Parser ([String], Expr)
     iterateExpr = do vars <- sepBy1 identifier comma
                      reserved "in"
-                     expr <- rvalue
+                     expr <- value
                      return (vars, expr)
 
 whileStmt :: Parser Stmt

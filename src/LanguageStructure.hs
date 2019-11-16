@@ -74,6 +74,7 @@ newtype Qualifier = Qualifier [String] deriving (Show, Eq)
 newtype FuncDereference = FuncDereference LValue deriving (Show, Eq)
 
 data Expr = Var LValue
+           | RValueExpr Expr [Expr] [LValueComp]
            | IntLit Integer
            | FloatLit Double
            | StringLit String

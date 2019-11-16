@@ -61,6 +61,7 @@ parseStatementTests =
                     , parseStatementT "self.additiveTurretIdle = %saw_gunner_prone_idle_mg;" ~?= Assign (LValue (Qualifier []) [LValueComp "self" [],LValueComp "additiveTurretIdle" []]) (AnimRef (Var (LValue (Qualifier []) [LValueComp "saw_gunner_prone_idle_mg" []])))
                     , parseStatementT "waittillframeend;// let _load run first" ~?= WaittillFrameEndStmt
                     , parseStatementT "wait .05;" ~?= WaitStmt (FloatLit 0.5)
+                    , parseStatementT "a = f(0)[0].a[0].a.b;" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (RValueExpr (FunctionCallE Nothing False (Left (LValue (Qualifier []) [LValueComp "f" []])) [IntLit 0]) [IntLit 0] [LValueComp "a" [IntLit 0],LValueComp "a" [],LValueComp "b" []])
                     ]
 
 main :: IO ()
