@@ -26,7 +26,6 @@ parens     = Token.parens        lexer -- parses surrounding parenthesis:
                                        -- uses p to parse what's inside them
 integer    = Token.integer       lexer -- parses an integer
 float      = Token.float         lexer -- parses an integer
-stringLit  = Token.stringLiteral lexer
 semi       = Token.semi          lexer -- parses a semicolon
 whiteSpace = Token.whiteSpace    lexer -- parses whitespace
 comma      = Token.comma         lexer -- parses a comma
@@ -36,6 +35,37 @@ dot        = Token.dot           lexer -- parses the dot, .
 braces     = Token.braces        lexer -- parses curly braces {}
 symbol     = Token.symbol        lexer -- parses curly braces {}
 
+
+-- MW2 has strings like this:
+--   println( "maps\\\_createpath::path_create(\"");
+-- but it looks like they're parser is just more lax about multiple
+-- back slashes in a row instead of there being a \_ escape sequence
+-- because I only see it used where it looks like they just want
+-- a _ anyways.
+
+-- copied from: https://stackoverflow.com/a/24106749
+-- need to add escape characters and the built-in parsec one doesn't
+-- provide a way to add any escape characters
+escape :: Parser String
+escape = do
+    d <- char '\\'
+    c <- oneOf "\\\"0nrvtbf_" -- all the characters which can be escaped
+    return [d, c]
+
+nonEscape :: Parser Char
+nonEscape = noneOf "\\\"\0\n\r\v\t\b\f"
+
+character :: Parser String
+character = fmap return nonEscape <|> escape
+
+stringLit :: Parser String
+stringLit = do
+    whiteSpace 
+    char '"'
+    strings <- many character
+    char '"'
+    whiteSpace
+    return $ concat strings
 
 -- if the operator is immediately followed by the beginning of a float 
 -- constant, then the parser had trouble before, as in this expression:
