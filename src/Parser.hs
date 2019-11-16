@@ -20,7 +20,6 @@ lexer = Token.makeTokenParser languageDef
 identifier = Token.identifier    lexer -- parses an identifier
 reserved   = Token.reserved      lexer -- parses a reserved name
 reservedOp = Token.reservedOp    lexer -- parses an operator
-operator   = Token.reservedOp    lexer -- parses an operator without checking if its a prefix
 parens     = Token.parens        lexer -- parses surrounding parenthesis:
                                        --   parens p
                                        -- takes care of the parenthesis and
@@ -35,8 +34,21 @@ brackets   = Token.brackets      lexer -- parses square brackets, []
 colon      = Token.colon         lexer -- parses a colon, :
 dot        = Token.dot           lexer -- parses the dot, .
 braces     = Token.braces        lexer -- parses curly braces {}
+symbol     = Token.symbol        lexer -- parses curly braces {}
 
-operators = getOperators reservedOp
+
+-- if the operator is immediately followed by the beginning of a float 
+-- constant, then the parser had trouble before, as in this expression:
+-- a = 3*.5;
+checkDot :: String -> Parser ()
+checkDot s = do symbol s
+                try (lookAhead dot)
+                return ()
+
+regularOrDot :: String -> Parser ()
+regularOrDot s = choice [reservedOp s, try (checkDot s)]
+
+operators = getOperators regularOrDot
 
 csvExpressions :: Parser [Expr]
 csvExpressions = sepBy expression comma
@@ -272,7 +284,7 @@ ifStmt = do conds <- parseConds False
                          return (CondStmt expr stmt : conds)
 
 floatStartDec :: Parser Double
-floatStartDec = do dot
+floatStartDec = do char '.'
                    fract <- integer
                    let digits = length (show fract)
                        value  = (fromIntegral fract :: Double) * 10.0 ** (-fromIntegral digits :: Double)
@@ -294,11 +306,11 @@ refStringLit = do reservedOp "&"
                   RefStringLit <$> stringLit
                   
 vec3Literal :: Parser Expr
-vec3Literal = do parens (do e1 <- expression
+vec3Literal = do parens (do e1 <- value
                             comma
-                            e2 <- expression
+                            e2 <- value
                             comma
-                            e3 <- expression
+                            e3 <- value
                             return (Vec3Lit e1 e2 e3))
 
 listLiteral :: Parser Expr

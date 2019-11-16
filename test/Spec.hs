@@ -62,6 +62,7 @@ parseStatementTests =
                     , parseStatementT "waittillframeend;// let _load run first" ~?= WaittillFrameEndStmt
                     , parseStatementT "wait .05;" ~?= WaitStmt (FloatLit 0.5)
                     , parseStatementT "a = f(0)[0].a[0].a.b;" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (RValueExpr (FunctionCallE Nothing False (Left (LValue (Qualifier []) [LValueComp "f" []])) [IntLit 0]) [IntLit 0] [LValueComp "a" [IntLit 0],LValueComp "a" [],LValueComp "b" []])
+                    , parseStatementT "a = 3*.5;" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (Binary Multiply (IntLit 3) (FloatLit 0.5))
                     ]
 
 main :: IO ()
