@@ -5,7 +5,6 @@ module Parser where
   https://wiki.haskell.org/Parsing_a_simple_imperative_language
 -}
 
-import System.IO
 import Control.Monad
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
@@ -427,25 +426,3 @@ parseStatement = parse statement ""
 
 parseFileStatements :: String -> Either ParseError [Stmt]
 parseFileStatements = parse sequenceOfFileStmt ""
-
-parseFile :: String -> IO ()
-parseFile fname = do hFile    <- openFile fname ReadMode
-                     contents <- hGetContents hFile
-                     case parseFileStatements contents of
-                       (Left e)     -> print e
-                       (Right asts) -> print asts
-
-
-gsc :: IO ()
-gsc = do putStr "gsc> "
-         s <- getLine
-         case parseStatement s of
-           (Left e)    -> print e
-           (Right ast) -> print ast
-         gsc
-
-fgsc :: IO ()
-fgsc = do putStr "fgsc> "
-          fname <- getLine
-          parseFile fname
-          fgsc
