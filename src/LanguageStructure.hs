@@ -25,6 +25,7 @@ languageDef =
                                      --, "assert"
                                      --, "undefined"
                                      , "thread"
+                                     , "childthread"
                                      , "for"
                                      , "foreach"
                                      , "in"
@@ -73,6 +74,7 @@ newtype Qualifier = Qualifier [String] deriving (Show, Eq)
 
 newtype FuncDereference = FuncDereference LValue deriving (Show, Eq)
 
+data FuncCallType = Default | Thread | ChildThread | Call deriving (Show, Eq)
 data Expr = Var LValue
            | RValueExpr Expr [Expr] [LValueComp]
            | IntLit Integer
@@ -91,7 +93,7 @@ data Expr = Var LValue
            | PreProc Expr
            | AnimRef Expr
            | Binary BinOp Expr Expr
-           | FunctionCallE (Maybe LValue) Bool (Either LValue FuncDereference) [Expr]
+           | FunctionCallE (Maybe LValue) FuncCallType (Either LValue FuncDereference) [Expr]
            | FuncNameE Qualifier
            | BNot Expr
              deriving (Show, Eq)

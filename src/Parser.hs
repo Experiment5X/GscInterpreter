@@ -82,14 +82,16 @@ operators = getOperators regularOrDot
 csvExpressions :: Parser [Expr]
 csvExpressions = sepBy expression comma
 
-funcCallContext :: Parser (Maybe LValue, Bool)
+funcCallContext :: Parser (Maybe LValue, FuncCallType)
 funcCallContext =   try (do lv <- lvalue
-                            reserved "thread"
-                            return (Just lv, True))
-                <|> do lv <- lvalue
-                       return (Just lv, False)
+                            ((reserved "thread" >> return (Just lv, Thread))
+                              <|> (reserved "call" >> return (Just lv, Call)))
+                              <|> (reserved "childthread" >> return (Just lv, Call))
+                              <|> return (Just lv, Default))
                 <|> do reserved "thread"
-                       return (Nothing, True)
+                       return (Nothing, Thread)
+                <|> do reserved "call"
+                       return (Nothing, Thread)
 
 qualifier :: Parser Qualifier
 qualifier =   try (do path  <- sepBy1 identifier (char '\\')
@@ -109,9 +111,9 @@ eitherLvalueOrFuncDeref :: Parser (Either LValue FuncDereference)
 eitherLvalueOrFuncDeref = (Left <$> lvalue) <|> (Right <$> funcDereference)
 
 functionCall :: Parser Expr
-functionCall =   try (do (mlv, async) <- funcCallContext
-                         helper mlv async)
-             <|> helper Nothing False
+functionCall =   try (do (mlv, t) <- funcCallContext
+                         helper mlv t)
+             <|> helper Nothing Default
              <?> "function call"
   where
     helper mlv' async' = do elvfd <- eitherLvalueOrFuncDeref
@@ -250,6 +252,7 @@ statement' =   preprocessStmt
            <|> debugBlockStmt
            <|> waitStmt
            <|> funcDefStmt
+           <|> braces statement
            <?> "statement"
 
 assignStmt :: Parser Stmt
