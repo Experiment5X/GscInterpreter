@@ -48,7 +48,7 @@ symbol     = Token.symbol        lexer -- parses curly braces {}
 escape :: Parser String
 escape = do
     d <- char '\\'
-    c <- oneOf "\\\"0nrvtbf_" -- all the characters which can be escaped
+    c <- anyChar
     return [d, c]
 
 nonEscape :: Parser Char
@@ -59,14 +59,14 @@ character = fmap return nonEscape <|> escape
 
 stringLit :: Parser String
 stringLit = do
-    whiteSpace 
+    whiteSpace
     char '"'
     strings <- many character
     char '"'
     whiteSpace
     return $ concat strings
 
--- if the operator is immediately followed by the beginning of a float 
+-- if the operator is immediately followed by the beginning of a float
 -- constant, then the parser had trouble before, as in this expression:
 -- a = 3*.5;
 checkDot :: String -> Parser ()
@@ -134,7 +134,7 @@ rvalueExpr = do rv    <- rvalue
   where
     trailingObjs = do dot
                       sepBy1 lvalueComponent dot
-                
+
 
 value :: Parser Expr
 value =   expression
