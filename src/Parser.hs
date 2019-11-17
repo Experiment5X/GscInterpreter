@@ -99,9 +99,11 @@ qualifier =   try (do path  <- sepBy1 identifier (char '\\')
           <|> do reservedOp "::"
                  return (Qualifier [])
           <|> return (Qualifier [])
+          <?> "qualifier"
 
 funcDereference :: Parser FuncDereference
-funcDereference = FuncDereference <$> between (reservedOp "[[") (reservedOp "]]") lvalue
+funcDereference =   (FuncDereference <$> between (reservedOp "[[") (reservedOp "]]") lvalue)
+                <?> "function dereference"
 
 eitherLvalueOrFuncDeref :: Parser (Either LValue FuncDereference)
 eitherLvalueOrFuncDeref = (Left <$> lvalue) <|> (Right <$> funcDereference)
@@ -110,6 +112,7 @@ functionCall :: Parser Expr
 functionCall =   try (do (mlv, async) <- funcCallContext
                          helper mlv async)
              <|> helper Nothing False
+             <?> "function call"
   where
     helper mlv' async' = do elvfd <- eitherLvalueOrFuncDeref
                             exprs <- parens csvExpressions
@@ -118,11 +121,13 @@ functionCall =   try (do (mlv, async) <- funcCallContext
 rvalue :: Parser Expr
 rvalue =   functionCall
        <|> literal
+       <?> "r-value"
 
 term :: Parser Expr
 term =   try rvalueExpr
      <|> try (parens expression)
-     <|> fmap Var lvalue
+     <|> try (fmap Var lvalue)
+     <?> "term"
 
 rvalueExpr :: Parser Expr
 rvalueExpr = do rv    <- rvalue
@@ -177,9 +182,10 @@ lvalueComponent :: Parser LValueComp
 lvalueComponent = LValueComp <$> identifier <*> parseIndices
 
 lvalue :: Parser LValue
-lvalue = do q     <- qualifier
-            comps <- sepBy1 lvalueComponent dot
-            return (LValue q comps)
+lvalue =   do q     <- qualifier
+              comps <- sepBy1 lvalueComponent dot
+              return (LValue q comps)
+       <?> "l-value"
 
 statement :: Parser Stmt
 statement = do whiteSpace
@@ -244,6 +250,7 @@ statement' =   preprocessStmt
            <|> debugBlockStmt
            <|> waitStmt
            <|> funcDefStmt
+           <?> "statement"
 
 assignStmt :: Parser Stmt
 assignStmt = Assign <$> lvalue <*> (reservedOp "=" >> value)
@@ -276,7 +283,7 @@ updateExprStmt = do lv <- lvalue
 
 
 debugBlockStmt :: Parser Stmt
-debugBlockStmt = DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement
+debugBlockStmt = (DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement) <?> "Debug block"
 
 returnStmt :: Parser Stmt
 returnStmt = do reserved "return"
@@ -329,6 +336,7 @@ literal =   fmap FloatLit (try floatStartDec)
         <|> refStringLit
         <|> listLiteral
         <|> vec3Literal
+        <?> "literal"
 
 refStringLit :: Parser Expr
 refStringLit = do reservedOp "&"
