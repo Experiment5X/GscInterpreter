@@ -16,16 +16,23 @@ gsc = do putStr "gsc> "
            (Left e)    -> print e
            (Right ast) -> print ast
          gsc
-         
+
 displayError :: String -> ParseError -> IO ()
-displayError fc err = do print err
-                         print line
+displayError fc err = do putStr labeledls
+                         print err
   where
-    l = sourceLine (errorPos err)
-    c = sourceColumn (errorPos err)
-    line = lines fc !! (pred l)
-    
-         
+    l         = sourceLine (errorPos err)
+    c         = sourceColumn (errorPos err)
+    lns       = lines fc
+    slns      = take (min 5 l) (drop (max 0 (l - 5)) lns)
+    labeled   = snd (foldr lineIter (l, []) slns)
+    colSpace  = "    " ++ replicate (pred c + length (show l)) ' '
+    colPtr    = colSpace ++ "⬆"
+    labeledls = unlines (labeled ++ [colPtr])
+
+    lineIter l' (ln, ls) = (pred ln, (show ln ++ "    " ++ l') : ls)
+
+
 parseFile :: String -> IO ()
 parseFile fname = do hFile    <- openFile fname ReadMode
                      contents <- hGetContents hFile
