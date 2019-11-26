@@ -436,5 +436,8 @@ usingAnimTreeStmt = do reserved "using_animtree"
 parseStatement :: String -> Either ParseError Stmt
 parseStatement = parse statement ""
 
+parseExpression :: String -> Either ParseError Expr
+parseExpression = parse expression ""
+
 parseFileStatements :: String -> Either ParseError [Stmt]
 parseFileStatements = parse sequenceOfFileStmt ""

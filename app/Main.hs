@@ -2,6 +2,7 @@ module Main where
 
 import System.IO
 import Parser
+import Interpreter
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
@@ -26,7 +27,7 @@ displayError fc err = do putStr labeledls
     c         = min (length (lns !! (pred l))) (sourceColumn (errorPos err))
     slns      = take (min 5 l) (drop (max 0 (l - 5)) lns)
     labeled   = snd (foldr lineIter (l, []) slns)
-    colSpace  = "    " ++ replicate (succ c + length (show l)) ' '
+    colSpace  = "    " ++ replicate (pred c + length (show l)) ' '
     colPtr    = colSpace ++ "⬆"
     labeledls = unlines (labeled ++ [colPtr])
 
@@ -45,6 +46,15 @@ fgsc = do putStr "fgsc> "
           fname <- getLine
           parseFile fname
           fgsc
+          
+repl :: IO ()
+repl = do putStr "~> "
+          s <- getLine
+          case parseExpression s of
+            (Left e)     -> print e
+            (Right expr) -> case evalExpr expr GscThreadTest 100 of
+                              (Right (v, _, _)) -> print v   >> repl
+                              (Left err)        -> print err >> repl
 
 main :: IO ()
 main = gsc

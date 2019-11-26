@@ -23,6 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 - parsec >= 3.1.13 && < 3.2
 - HUnit >= 1.6 && < 1.7
+- containers
+- mtl >= 2.2.0 && < 2.3.0
 
 library:
   source-dirs: src
