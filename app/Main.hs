@@ -1,6 +1,7 @@
 module Main where
 
 import System.IO
+import System.Environment
 import Parser
 import Interpreter
 import Text.ParserCombinators.Parsec
@@ -49,12 +50,17 @@ fgsc = do putStr "fgsc> "
           
 repl :: IO ()
 repl = do putStr "~> "
+          hFlush stdout
           s <- getLine
           case parseExpression s of
-            (Left e)     -> print e
+            (Left e)     -> print e >> repl
             (Right expr) -> case evalExpr expr GscThreadTest 100 of
                               (Right (v, _, _)) -> print v   >> repl
                               (Left err)        -> print err >> repl
 
 main :: IO ()
-main = gsc
+main = do args <- getArgs
+          if null args
+             then repl 
+             else mapM_ parseFile args
+          
