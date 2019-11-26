@@ -21,12 +21,12 @@ displayError :: String -> ParseError -> IO ()
 displayError fc err = do putStr labeledls
                          print err
   where
-    l         = sourceLine (errorPos err)
-    c         = sourceColumn (errorPos err)
     lns       = lines fc
+    l         = sourceLine (errorPos err)
+    c         = min (length (lns !! (pred l))) (sourceColumn (errorPos err))
     slns      = take (min 5 l) (drop (max 0 (l - 5)) lns)
     labeled   = snd (foldr lineIter (l, []) slns)
-    colSpace  = "    " ++ replicate (pred c + length (show l)) ' '
+    colSpace  = "    " ++ replicate (succ c + length (show l)) ' '
     colPtr    = colSpace ++ "⬆"
     labeledls = unlines (labeled ++ [colPtr])
 
