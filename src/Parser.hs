@@ -302,7 +302,8 @@ waitStmt =   do reserved "wait"
          <|> (reserved "waittillframeend" >> semi >> return WaittillFrameEndStmt)
 
 structureBody :: Parser Stmt
-structureBody =   braces statement
+structureBody =   try (reservedOp "{" >> reservedOp "}" >> return (Seq []))
+              <|> braces statement
               <|> statement'
 
 ifStmt :: Parser Stmt
