@@ -4,7 +4,7 @@
 
 This is an interpreter for the game scripting language used by MW2, CoD WaW, and CoD 4. 
 
-So far this application will parse the code and interpret basic mathematical expressions. 
+So far this application will parse the code (aka check for syntax errors) and interpret basic mathematical expressions. 
 
 ### Usage
 To compile the application run:
@@ -17,6 +17,11 @@ To run the application:
 GscInterpeter-exe [files]
 ```
 You can optionally supply the names of files to parse. If there are parse errors the application will print out a few lines before the one that has issues, and display an arrow pointing to the exact character that the parser choked on. Due to the way this is written, the arrow may not be in the most helpful place but I'm working on improving it. 
+
+All of the unit tests can be run with:
+```
+stack test
+```
 
 ### Parser
 ```
