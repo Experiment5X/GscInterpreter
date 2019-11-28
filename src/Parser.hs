@@ -90,6 +90,8 @@ funcCallContext =   try (do lv <- lvalue
                               <|> return (Just lv, Default))
                 <|> do reserved "thread"
                        return (Nothing, Thread)
+                <|> do reserved "childthread"
+                       return (Nothing, ChildThread)
                 <|> do reserved "call"
                        return (Nothing, Thread)
 

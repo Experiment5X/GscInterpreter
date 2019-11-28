@@ -66,6 +66,7 @@ parseStatementTests =
                     , parseStatementT "a = 3*.5;" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (Binary Multiply (IntLit 3) (FloatLit 0.5))
                     , parseStatementT "/# #/" ~?= DebugBlock (Seq [])
                     , parseStatementT ";;;" ~?= Seq [Seq [],Seq [],Seq []]
+                    , parseStatementT "childthread noself_delayCall( delay );" ~?= FunctionCallS (FunctionCallE Nothing ChildThread (Left (LValue (Qualifier []) [LValueComp "noself_delayCall" []])) [Var (LValue (Qualifier []) [LValueComp "delay" []])])
                     ]
 
 main :: IO ()
