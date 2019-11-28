@@ -52,7 +52,7 @@ escape = do
     return [d, c]
 
 nonEscape :: Parser Char
-nonEscape = noneOf "\\\"\0\n\r\v\t\b\f"
+nonEscape = noneOf "\\\"\0\n\r\v\b\f"
 
 character :: Parser String
 character = fmap return nonEscape <|> escape
