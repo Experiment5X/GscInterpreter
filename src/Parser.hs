@@ -287,7 +287,10 @@ updateExprStmt = do lv <- lvalue
 
 
 debugBlockStmt :: Parser Stmt
-debugBlockStmt = (DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") statement) <?> "Debug block"
+debugBlockStmt = (DebugBlock <$> between (reservedOp "/#") (reservedOp "#/") (statement <|> emptyStmt)) <?> "Debug block"
+  where
+    emptyStmt = do whiteSpace
+                   return (Seq [])
 
 returnStmt :: Parser Stmt
 returnStmt = do reserved "return"
