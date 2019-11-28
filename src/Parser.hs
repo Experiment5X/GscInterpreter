@@ -253,6 +253,7 @@ statement' =   preprocessStmt
            <|> waitStmt
            <|> funcDefStmt
            <|> braces statement
+           <|> (semi >> return (Seq []))
            <?> "statement"
 
 assignStmt :: Parser Stmt
