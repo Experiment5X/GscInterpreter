@@ -54,9 +54,9 @@ repl = do putStr "~> "
           s <- getLine
           case parseExpression s of
             (Left e)     -> print e >> repl
-            (Right expr) -> case evalExpr expr GscThreadTest 100 of
-                              (Right (v, _, _)) -> print v   >> repl
-                              (Left err)        -> print err >> repl
+            (Right expr) -> case evalExpr expr of
+                              (Right v)  -> print v   >> repl
+                              (Left err) -> print err >> repl
 
 main :: IO ()
 main = do args <- getArgs
