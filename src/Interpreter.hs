@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Interpreter where
 
@@ -11,6 +12,9 @@ Threads
  - need a way to keep track of the number of 'steps' taken while evaluating so
    you can evaluate for a fixed number of steps before switching to another
    thread
+   
+ - want a monad that can handle the environment, errors, and thread running out
+   of steps
 
 runThread :: Int -> GscThread -> GscThread
 -}
@@ -18,52 +22,58 @@ runThread :: Int -> GscThread -> GscThread
 
 type GscEnv = Map LValue Expr
 
-
+data GscThreadState = GscThreadState [Stmt] GscEnv [String] (IO ())
 
 -- GscThread (steps remaining, things to execute, environment, events, application output)
-data GscThread = GscThread Int [Stmt] GscEnv [String] (IO ()) | GscThreadTest
+data GscThread = GscTRunning Int GscThreadState | GscTPaused GscThreadState | GscTError String GscThreadState
 
 -- GscAppState CurrentThread [Threads: ] (possibly some global state)
 data GscAppState = GscAppState Int [GscM ()] (Maybe GscEnv)
 
-data GscM a = GscRunning ((GscThread, Int) -> (a, GscThread, Int)) | GscStopped GscThread | GscError String GscThread
+data GscMResult a = GscVal a | GscErr
+newtype GscM a = GscM (GscThread -> (a, GscThread)) 
 
 instance Functor GscM where
-  fmap f (GscRunning t) = GscRunning (\ thread -> let (x, env', stps) = t thread in (f x, env', pred stps))
-  fmap _ (GscStopped t) = GscStopped t
-  fmap _ (GscError e t) = GscError e t
+  --fmap f (GscM t) = GscM (\ thread -> let (x, env') = t thread in (f x, env', pred stps))
+  fmap g (GscM f) = GscM (\ t -> let (x, t') = f t in
+                                 (g x, t')) 
     
 instance Applicative GscM where
-  pure x = GscRunning (\ (t, stps) -> (x, t, stps)) -- the number of steps to execute before swapping
+  pure x = GscM (x, ) 
   
-  (GscRunning t0) <*> (GscRunning t1) = GscRunning (\ (thread, stps) -> let (f, thread', stps')   = t0 (thread, stps)
-                                                                            (x, thread'', stps'') = t1 (thread', stps') in
-                                                                            (f x, thread'', pred stps''))
-  (GscStopped t)  <*> _               = GscStopped t
-  (GscError e t)  <*> _               = GscError e t
-  
-  _               <*> (GscStopped t)  = GscStopped t
-  _               <*> (GscError e t)  = GscError e t
+ -- (GscM t0) <*> (GscM t1) = GscM (\ thread -> let (f, thread', stps')   = t0 (thread, stps)
+ --                                                 (x, thread'', stps'') = t1 (thread', stps') in
+ --                                                 (f x, thread'', pred stps''))
+ 
+  (GscM f0) <*> (GscM f1) = GscM (\ t -> case f0 t of
+                                           (f, GscTRunning stps st) -> case f1 (GscTRunning stps st) of
+                                                                         (x, GscTRunning stps' st') -> (f x, GscTRunning stps' st'))
+                                                                        -- (_, GscTPaused st)         -> ((), GscTPaused st)
+                                                                        -- (_, GscTError err st)      -> ((), GcsTError err st)
+                                           -- (_, GscTPaused st)       -> GscTPaused st
+                                           -- (_, GscTError err st)    -> GscTError err st)
 
 instance Monad GscM where
   return         = pure
   
---(>>=)  :: m a -> (  a -> m b) -> m b
-  -- (GscRunning t) >>= f = GscRunning (\ (thread, stps) -> let (x, thread', stps')    = t (thread, stps)
-  --                                                            (GscRunning g)         = f x
-  --                                                            (x', thread'', stps'') = g (thread', stps') in
-  --                                                            (x', thread'', pred stps'))
-  
   {-
      If g returns an error we want to return the error from this function
   -}
-  (GscRunning f) >>= g =  
-  
-  (GscStopped t) >>= _ = GscStopped t
-  (GscError e t) >>= _ = GscError e t
-  
+  (GscM f) >>= g = GscM bnd
+    where
+      checkSwapThread x (GscTRunning 0 st)    = (GscErr, GscTPaused st)
+      checkSwapThread x (GscTRunning stps st) = (x, GscTRunning (pred stps) st)
+      checkSwapThread x t                     = (GscErr, t)
+      
+      bnd t@(GscTRunning stps st) = case f t of
+                                      (x, t' @ (GscTRunning stps' st')) -> case g x of
+                                                                             (GscM f') -> f' x
+                                      (_, t')                           -> (GscErr, t')
+      bnd t = (GscErr, t) -- GscErr needs to be the same type as the return type of g's monad, how?
+
+
 getState :: GscM GscThread
-getState = GscRunning (\ (t, stps) -> (t, t, stps)) 
+getState = GscRunning (\ (t, stps) -> (t, t, stps))
 
 isDone :: GscM Bool
 isDone = GscRunning (\ (t, stps) -> (stps == 0, t, stps))
@@ -73,7 +83,7 @@ checkDone = do done <- isDone
                when done $
                  do t <- getState
                     GscStopped t
-                                                    
+
 --gscError :: GscM String -> GscM ()
 --gscError merr = do err <- merr
 --                   t   <- getState
@@ -89,7 +99,7 @@ data Value = VString String
            | VInt Integer
            | VDouble Double
            deriving (Show, Eq)
-           
+
 type EvalErr = Either String
 
 type OpInt = Integer -> Integer -> Integer
@@ -132,7 +142,7 @@ evalBinOp Divide   = evalDiv
 
 evalExpr :: Expr -> Either String Value
 evalExpr expr = runGscM (evalExpr2 (return expr))
-                                        
+
 evalExpr2 :: GscM Expr -> GscM Value
 evalExpr2 mexpr = do expr <- mexpr
                      case expr of
@@ -143,21 +153,22 @@ evalExpr2 mexpr = do expr <- mexpr
                                                 case (v1, v2) of
                                                   (VInt i1, VInt i2) -> return (VInt (i1 + i2))
                                                   _                  -> gscError "Type Error"
-                                                  
+
 startThreadState :: GscThread
 startThreadState = GscThread 50 [] empty [] (return ())
 
-runGscM :: GscM a -> Either String a
-runGscM (GscRunning f) = case f (startThreadState, 50) of
-                              (res, _, _) -> Right res
-runGscM (GscError e t) = Left e
-runGscM (GscStopped t) = Left "Stopped"
+-- runGscM :: GscM a -> Either String a
+-- runGscM (GscRunning f) = case f (startThreadState, 50) of
+--                               (res, _, _) -> Right res
+-- runGscM (GscError e t) = Left e
+-- runGscM (GscStopped t) = Left "Stopped"
+
 
 {-
-Problem: need to get the current state into this eval, you need the values of the 
+Problem: need to get the current state into this eval, you need the values of the
          variables that could be used in the expression you're evaluating
 
-How does Haskell know when I say "stmt <- mstmt" that I want to get the statement out 
+How does Haskell know when I say "stmt <- mstmt" that I want to get the statement out
 of the tuple in mstmt?
 
 evalStmt :: GscM Stmt -> GscM ()
@@ -166,7 +177,7 @@ evalStmt mstmt = do stmt <- mstmt
                       as@(Assign _ _) -> evalAssignStmt stmt
 
 evalAssignStmt :: Stmt -> GscM ()
-evalAssignStmt (Assign lv expr) = do stmt <- 
+evalAssignStmt (Assign lv expr) = do stmt <-
                                      let v = evalExpr expr in
-                                     store lv v 
+                                     store lv v
 -}
