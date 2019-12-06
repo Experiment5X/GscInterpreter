@@ -55,8 +55,8 @@ repl = do putStr "~> "
           case parseExpression s of
             (Left e)     -> print e >> repl
             (Right expr) -> case evalExpr expr of
-                              (Right v)  -> print v   >> repl
-                              (Left err) -> print err >> repl
+                              (Right v)  -> print v      >> repl
+                              (Left err) -> putStrLn err >> repl
 
 main :: IO ()
 main = do args <- getArgs

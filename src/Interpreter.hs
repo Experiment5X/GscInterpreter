@@ -8,7 +8,9 @@ import Data.Bits
 import Control.Monad.Except;
 import LanguageStructure
 
-type GscEnv = Map LValue Expr
+type Identifier = String
+
+type GscEnv = Map Identifier Value
 data GscState = GscState [Stmt] GscEnv (IO ())
 data GscProcess = GscPRunning GscState | GscPError String GscState
 data GscAppState = GscAppState Int [GscM ()] (Maybe GscEnv)
@@ -41,6 +43,23 @@ instance Monad GscM where
 
 getState :: GscM GscProcess
 getState = GscM (\ t -> (GscVal t, t))
+
+putState :: GscProcess -> GscM ()
+putState t = GscM (const (GscVal (), t))
+
+getValue :: Identifier -> GscM Value
+getValue i = do st <- getState
+                case st of
+                  (GscPRunning (GscState _ env _)) -> case Data.Map.lookup i env of
+                                                        (Just val) -> return val
+                                                        Nothing    -> gscError ("Identifier " ++ show i ++ " not defined")
+
+putValue :: Identifier -> Value -> GscM ()
+putValue i v = do st <- getState
+                  let (GscPRunning (GscState stmts env io)) = st
+                      env'                                  = Data.Map.insert i v env
+                      in do putState (GscPRunning (GscState stmts env' io))
+                            return ()
 
 gscError :: String -> GscM a
 gscError err = GscM (\ t -> case t of
@@ -148,12 +167,16 @@ evalExpr2 mexpr = do expr <- mexpr
                        (Binary op e1 e2) -> do v1 <- evalExpr2 (return e1)
                                                v2 <- evalExpr2 (return e2)
                                                evalBinOp op v1 v2
+                       (Var (LValue _ [LValueComp i []])) -> getValue i
 
 startThreadState :: GscProcess
-startThreadState = GscPRunning (GscState [] empty (return ()))
+startThreadState = startThreadStateEnv empty
+
+startThreadStateEnv :: Map Identifier Value -> GscProcess
+startThreadStateEnv env = GscPRunning (GscState [] env (return ()))
 
 runGscM :: GscM a -> Either String a
-runGscM (GscM f) = case f startThreadState of
-                     (GscErr, GscPError err st) -> Left err
-                     (GscVal v, _)              -> Right v
-
+runGscM (GscM f) = let env = Data.Map.fromList [("a", VInt 5), ("b", VInt 23)]
+                   in case f (startThreadStateEnv env) of
+                        (GscErr, GscPError err st) -> Left err
+                        (GscVal v, _)              -> Right v
