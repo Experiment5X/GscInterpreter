@@ -36,9 +36,9 @@ instance Monad GscM where
   return         = pure
   
   (GscM f) >>= g = GscM (\ t -> case f t of
-                                  (GscVal rx, GscPRunning t') -> let GscM f' = g rx
-                                                                   in f' t
-                                  (_, GscPError s t')   -> (GscErr, GscPError s t'))
+                                  (GscVal rx, t'@(GscPRunning _)) -> let GscM f' = g rx
+                                                                     in f' t'
+                                  (_, t'@(GscPError _ _))         -> (GscErr, t'))
 
 
 getState :: GscM GscProcess
@@ -46,6 +46,12 @@ getState = GscM (\ t -> (GscVal t, t))
 
 putState :: GscProcess -> GscM ()
 putState t = GscM (const (GscVal (), t))
+
+getEnv :: GscM GscEnv
+getEnv = do st <- getState
+            case st of
+              (GscPRunning (GscState _ env _)) -> return env
+              (GscPError _ (GscState _ env _)) -> return env
 
 getValue :: Identifier -> GscM Value
 getValue i = do st <- getState
@@ -154,20 +160,29 @@ evalBinOp AXor       = evalAXor
 evalBinOp BAnd       = evalBAnd
 evalBinOp BOr        = evalBOr
 
-evalExpr :: Expr -> Either String Value
-evalExpr expr = runGscM (evalExpr2 (return expr))
+evalExpr2 :: Expr -> GscEnv -> Either String Value
+evalExpr2 expr = runGscMWithEnv (evalExpr expr)
 
-evalExpr2 :: GscM Expr -> GscM Value
-evalExpr2 mexpr = do expr <- mexpr
-                     case expr of
-                       (BoolLit b)       -> return (VBool b)
-                       (IntLit i)        -> return (VInt i)
-                       (FloatLit n)      -> return (VDouble n)
-                       (StringLit s)     -> return (VString s)
-                       (Binary op e1 e2) -> do v1 <- evalExpr2 (return e1)
-                                               v2 <- evalExpr2 (return e2)
-                                               evalBinOp op v1 v2
-                       (Var (LValue _ [LValueComp i []])) -> getValue i
+evalStmt2 :: Stmt -> GscEnv -> Either String GscEnv
+evalStmt2 stmt = runGscMWithEnv (evalStmt stmt >> getEnv)
+
+evalExpr :: Expr -> GscM Value
+evalExpr (BoolLit b)       = return (VBool b)
+evalExpr (IntLit i)        = return (VInt i)
+evalExpr (FloatLit n)      = return (VDouble n)
+evalExpr (StringLit s)     = return (VString s)
+evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
+                                v2 <- evalExpr e2
+                                evalBinOp op v1 v2
+evalExpr (Var (LValue _ [LValueComp i []])) = getValue i
+
+evalMExpr :: GscM Expr -> GscM Value
+evalMExpr mexpr = do expr <- mexpr
+                     evalExpr expr
+
+evalStmt :: Stmt -> GscM ()
+evalStmt (Assign (LValue _ [LValueComp i []]) expr) = do v <- evalExpr expr
+                                                         putValue i v
 
 startThreadState :: GscProcess
 startThreadState = startThreadStateEnv empty
@@ -175,8 +190,11 @@ startThreadState = startThreadStateEnv empty
 startThreadStateEnv :: Map Identifier Value -> GscProcess
 startThreadStateEnv env = GscPRunning (GscState [] env (return ()))
 
+runGscMWithEnv :: GscM a -> GscEnv -> Either String a
+runGscMWithEnv (GscM f) env = case f (startThreadStateEnv env) of
+                                (GscErr, GscPError err st) -> Left err
+                                (GscVal v, _)              -> Right v
+
 runGscM :: GscM a -> Either String a
-runGscM (GscM f) = let env = Data.Map.fromList [("a", VInt 5), ("b", VInt 23)]
-                   in case f (startThreadStateEnv env) of
-                        (GscErr, GscPError err st) -> Left err
-                        (GscVal v, _)              -> Right v
+runGscM mgsc = let env = Data.Map.fromList [("a", VInt 5), ("b", VInt 23)]
+               in runGscMWithEnv mgsc env

@@ -10,6 +10,7 @@ import Text.ParserCombinators.Parsec.Language
 import Text.ParserCombinators.Parsec.Error
 import Text.Parsec.Error
 import qualified Text.ParserCombinators.Parsec.Token as Token
+import qualified Data.Map as Map
 
 gsc :: IO ()
 gsc = do putStr "gsc> "
@@ -48,19 +49,23 @@ fgsc = do putStr "fgsc> "
           parseFile fname
           fgsc
           
-repl :: IO ()
-repl = do putStr "~> "
-          hFlush stdout
-          s <- getLine
-          case parseExpression s of
-            (Left e)     -> print e >> repl
-            (Right expr) -> case evalExpr expr of
-                              (Right v)  -> print v      >> repl
-                              (Left err) -> putStrLn err >> repl
+repl :: GscEnv -> IO ()
+repl env = do putStr "~> "
+              hFlush stdout
+              s <- getLine
+              case parseStatement s of
+                (Left e)     -> case parseExpression s of
+                                  (Left err)   -> print err >> repl env
+                                  (Right expr) -> case evalExpr2 expr env of
+                                                    (Left err) -> putStrLn err >> repl env
+                                                    (Right v)  -> print v      >> repl env
+                (Right stmt) -> case evalStmt2 stmt env of
+                                  (Left err)   -> putStrLn err >> repl env
+                                  (Right env') -> print env'   >> repl env'
 
 main :: IO ()
 main = do args <- getArgs
           if null args
-             then repl 
+             then repl Map.empty
              else mapM_ parseFile args
           
