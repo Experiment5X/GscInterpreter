@@ -77,7 +77,10 @@ data Value = VString String
            | VBool Bool
            | VInt Integer
            | VDouble Double
-           deriving (Show, Eq)
+           | VRef ReferenceValue
+           deriving (Show, Eq, Ord)
+           
+data ReferenceValue = RVObj (Map Value Value) deriving (Show, Eq, Ord)
 
 type EvalErr = Either String
 
@@ -93,6 +96,13 @@ implicitBoolConvert (VDouble 0)  = VBool False
 implicitBoolConvert (VDouble _)  = VBool True
 implicitBoolConvert (VString "") = VBool False
 implicitBoolConvert (VString _)  = VBool True
+
+evalListLit :: [Expr] -> GscM Value
+evalListLit = mkObj (VInt 0) empty
+  where
+    mkObj _ obj []                  = return (VRef (RVObj obj))
+    mkObj (VInt i) obj (expr:exprs) = do v <- evalExpr expr
+                                         mkObj (VInt (succ i)) (insert (VInt i) v obj) exprs
 
 evalAdd :: Value -> Value -> GscM Value
 evalAdd = evalOpArith (+) (+)
@@ -171,6 +181,7 @@ evalExpr (BoolLit b)       = return (VBool b)
 evalExpr (IntLit i)        = return (VInt i)
 evalExpr (FloatLit n)      = return (VDouble n)
 evalExpr (StringLit s)     = return (VString s)
+evalExpr (ListLit es)      = evalListLit es
 evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 v2 <- evalExpr e2
                                 evalBinOp op v1 v2
@@ -179,10 +190,25 @@ evalExpr (Var (LValue _ [LValueComp i []])) = getValue i
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
+                     
+
+evalPutIntoLValue :: Value -> LValue -> GscM ()
+evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v
+evalPutIntoLValue v (LValue q [LValueComp i [e]]) = do vidx <- evalExpr e
+                                                       obj  <- getValue i
+                                                       evalPutIntoObj vidx v i obj
+  where
+    evalPutIntoObj vidx v i (VRef (RVObj obj)) = putValue i (VRef (RVObj (insert vidx v obj)))
+    evalPutIntoObj _    _ _ _                  = gscError "Type is not indexable, must be an object/array"
+                                                        
 
 evalStmt :: Stmt -> GscM ()
-evalStmt (Assign (LValue _ [LValueComp i []]) expr) = do v <- evalExpr expr
-                                                         putValue i v
+evalStmt (Assign lv expr)                               = do v <- evalExpr expr
+                                                             evalPutIntoLValue v lv
+evalStmt (PlusEquals (LValue _ [LValueComp i []]) expr) = do v1 <- getValue i
+                                                             v2 <- evalExpr expr
+                                                             vf <- evalAdd v1 v2
+                                                             putValue i vf
 
 startThreadState :: GscProcess
 startThreadState = startThreadStateEnv empty
