@@ -216,6 +216,25 @@ evalExpr2 expr = runGscMWithEnv (evalExpr expr)
 evalStmt2 :: Stmt -> GscEnv -> Either String GscEnv
 evalStmt2 stmt = runGscMWithEnv (evalStmt stmt >> getEnv)
 
+evalArrMapLookup :: Value -> Value -> GscM Value
+evalArrMapLookup idx (VRef ref) = do vstore <- getValue storeIdent
+                                     case vstore of
+                                       (VStore store) -> case Data.Map.lookup ref store of
+                                                           (Just obj) -> case Data.Map.lookup idx obj of
+                                                                           (Just v) -> return v
+                                                                           Nothing  -> gscError ("No value at index " ++ show idx)
+                                                           Nothing    -> gscError "Invalid object reference"
+evalArrMapLookup _   _          = gscError "Variable is not indexible"
+
+evalArrMapIndices :: Identifier -> [Expr] -> GscM Value
+evalArrMapIndices i es = do v <- getValue i
+                            evalAllIndices v es
+  where
+    evalAllIndices v []      = return v
+    evalAllIndices v (e:es') = do idx <- evalExpr e
+                                  v'  <- evalArrMapLookup idx v
+                                  evalAllIndices v' es'
+
 evalExpr :: Expr -> GscM Value
 evalExpr (BoolLit b)       = return (VBool b)
 evalExpr (IntLit i)        = return (VInt i)
@@ -225,20 +244,8 @@ evalExpr (ListLit es)      = evalListLit es
 evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 v2 <- evalExpr e2
                                 evalBinOp op v1 v2
-evalExpr (Var (LValue _ [LValueComp i []]))  = getValue i
-evalExpr (Var (LValue _ [LValueComp i [e]])) = do idx <- evalExpr e
-                                                  v   <- getValue i
-                                                  case v of
-                                                    (VRef ref) -> do vstore <- getValue storeIdent
-                                                                     case vstore of
-                                                                       (VStore store) -> case Data.Map.lookup ref store of
-                                                                                           (Just obj) -> case Data.Map.lookup idx obj of
-                                                                                                           (Just v) -> return v
-                                                                                                           Nothing  -> gscError ("No value at index " ++ show v)
-                                                                                           Nothing    -> gscError "Invalid object reference"
-                                                    _          -> gscError "Variable is not indexible"
+evalExpr (Var (LValue _ [LValueComp i es])) = evalArrMapIndices i es
                                                   
-
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
