@@ -89,6 +89,10 @@ parseStatementTests =
 evalExprTests :: Test
 evalExprTests = 
      TestList [ evalExprT (parseExprT "3 + 6 * 10") ~?= VInt 63
+              , evalExprT (parseExprT "5 < 6") ~?= VBool True
+              , evalExprT (parseExprT "5 == 6") ~?= VBool False
+              , evalExprT (parseExprT "5 == 5") ~?= VBool True
+              , evalExprT (parseExprT "5.6 > 5") ~?= VBool True
               ]
               
 evalStmtTests :: Test

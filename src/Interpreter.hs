@@ -79,14 +79,16 @@ data Value = VString String
            | VDouble Double
            | VRef ReferenceValue
            deriving (Show, Eq, Ord)
-           
+
 data ReferenceValue = RVObj (Map Value Value) deriving (Show, Eq, Ord)
 
 type EvalErr = Either String
 
-type OpInt    = Integer -> Integer -> Integer
-type OpDouble = Double  -> Double  -> Double
-type OpBool   = Bool    -> Bool    -> Bool
+type OpInt     = Integer -> Integer -> Integer
+type OpDouble  = Double  -> Double  -> Double
+type OpCInt    = Integer -> Integer -> Bool
+type OpCDouble = Double  -> Double  -> Bool
+type OpBool    = Bool    -> Bool    -> Bool
 
 implicitBoolConvert :: Value -> Value
 implicitBoolConvert (VBool b)    = VBool b
@@ -140,6 +142,24 @@ evalBAnd = evalOpBool (&&)
 evalBOr :: Value -> Value -> GscM Value
 evalBOr = evalOpBool (||)
 
+evalLess :: Value -> Value -> GscM Value
+evalLess = evalOpComp (<) (<)
+
+evalLessEq :: Value -> Value -> GscM Value
+evalLessEq = evalOpComp (<=) (<=)
+
+evalEq :: Value -> Value -> GscM Value
+evalEq = evalOpComp (==) (==)
+
+evalNotEq :: Value -> Value -> GscM Value
+evalNotEq = evalOpComp (/=) (/=)
+
+evalGreaterEq :: Value -> Value -> GscM Value
+evalGreaterEq = evalOpComp (>=) (>=)
+
+evalGreater :: Value -> Value -> GscM Value
+evalGreater = evalOpComp (>) (>)
+
 evalBinInt :: OpInt -> Value -> Value -> GscM Value
 evalBinInt op (VInt v1) (VInt v2) = return (VInt (v1 `op` v2))
 evalBinInt _  _         _         = gscError "Incompatible types"
@@ -150,6 +170,13 @@ evalOpArith _   opd (VDouble v1) (VInt v2)    = return (VDouble (v1 `opd` (fromI
 evalOpArith _   opd (VInt v1)    (VDouble v2) = return (VDouble ((fromIntegral v1 :: Double) `opd` v2))
 evalOpArith _   opd (VDouble v1) (VDouble v2) = return (VDouble (v1 `opd` v2))
 evalOpArith _   _   _            _            = gscError "Incompatible types"
+
+evalOpComp :: OpCInt -> OpCDouble -> Value -> Value -> GscM Value
+evalOpComp opi _   (VInt v1)    (VInt v2)    = return (VBool (v1 `opi` v2))
+evalOpComp _   opd (VDouble v1) (VInt v2)    = return (VBool (v1 `opd` (fromIntegral v2 :: Double)))
+evalOpComp _   opd (VInt v1)    (VDouble v2) = return (VBool ((fromIntegral v1 :: Double) `opd` v2))
+evalOpComp _   opd (VDouble v1) (VDouble v2) = return (VBool (v1 `opd` v2))
+evalOpComp _   _   _            _            = gscError "Incompatible types"
 
 evalOpBool :: OpBool -> Value -> Value -> GscM Value
 evalOpBool op v1 v2 = let (VBool b1) = implicitBoolConvert v1
@@ -169,6 +196,12 @@ evalBinOp AOr        = evalAOr
 evalBinOp AXor       = evalAXor
 evalBinOp BAnd       = evalBAnd
 evalBinOp BOr        = evalBOr
+evalBinOp Less       = evalLess
+evalBinOp LessEq     = evalLessEq
+evalBinOp Equal      = evalEq
+evalBinOp NotEqual   = evalNotEq
+evalBinOp GreaterEq  = evalGreaterEq
+evalBinOp Greater    = evalGreater
 
 evalExpr2 :: Expr -> GscEnv -> Either String Value
 evalExpr2 expr = runGscMWithEnv (evalExpr expr)
@@ -190,7 +223,6 @@ evalExpr (Var (LValue _ [LValueComp i []])) = getValue i
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
-                     
 
 evalPutIntoLValue :: Value -> LValue -> GscM ()
 evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v
@@ -211,7 +243,7 @@ evalStmt :: Stmt -> GscM ()
 evalStmt (Assign lv expr)       = do v <- evalExpr expr
                                      evalPutIntoLValue v lv
 evalStmt (Seq stmts)            = mapM_ evalStmt stmts
-                                     
+
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
 evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
 evalStmt (TimesEquals lv expr)  = evalAssignEquals evalMul lv expr
