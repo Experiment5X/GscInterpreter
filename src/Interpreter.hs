@@ -77,10 +77,11 @@ data Value = VString String
            | VBool Bool
            | VInt Integer
            | VDouble Double
-           | VRef ReferenceValue
+           | VRef Integer
+           | VStore (Map Integer RVObj)
            deriving (Show, Eq, Ord)
 
-data ReferenceValue = RVObj (Map Value Value) deriving (Show, Eq, Ord)
+type RVObj = Map Value Value
 
 type EvalErr = Either String
 
@@ -102,7 +103,13 @@ implicitBoolConvert (VString _)  = VBool True
 evalListLit :: [Expr] -> GscM Value
 evalListLit = mkObj (VInt 0) empty
   where
-    mkObj _ obj []                  = return (VRef (RVObj obj))
+    mkObj _ obj [] = do vnxtId <- getValue nextObjIdIdent
+                        case vnxtId of
+                          (VInt nxtId) -> do putValue nextObjIdIdent (VInt (succ nxtId))
+                                             vstore <- getValue storeIdent
+                                             case vstore of
+                                               (VStore store) -> do putValue storeIdent (VStore (insert nxtId obj store))
+                                                                    return (VRef nxtId)
     mkObj (VInt i) obj (expr:exprs) = do v <- evalExpr expr
                                          mkObj (VInt (succ i)) (insert (VInt i) v obj) exprs
 
@@ -218,7 +225,19 @@ evalExpr (ListLit es)      = evalListLit es
 evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 v2 <- evalExpr e2
                                 evalBinOp op v1 v2
-evalExpr (Var (LValue _ [LValueComp i []])) = getValue i
+evalExpr (Var (LValue _ [LValueComp i []]))  = getValue i
+evalExpr (Var (LValue _ [LValueComp i [e]])) = do idx <- evalExpr e
+                                                  v   <- getValue i
+                                                  case v of
+                                                    (VRef ref) -> do vstore <- getValue storeIdent
+                                                                     case vstore of
+                                                                       (VStore store) -> case Data.Map.lookup ref store of
+                                                                                           (Just obj) -> case Data.Map.lookup idx obj of
+                                                                                                           (Just v) -> return v
+                                                                                                           Nothing  -> gscError ("No value at index " ++ show v)
+                                                                                           Nothing    -> gscError "Invalid object reference"
+                                                    _          -> gscError "Variable is not indexible"
+                                                  
 
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
@@ -226,12 +245,19 @@ evalMExpr mexpr = do expr <- mexpr
 
 evalPutIntoLValue :: Value -> LValue -> GscM ()
 evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v
-evalPutIntoLValue v (LValue q [LValueComp i [e]]) = do vidx <- evalExpr e
-                                                       obj  <- getValue i
-                                                       evalPutIntoObj vidx v i obj
+evalPutIntoLValue v (LValue q [LValueComp i [e]]) = do vidx   <- evalExpr e
+                                                       objRef <- getValue i
+                                                       evalPutIntoObj vidx v objRef
   where
-    evalPutIntoObj vidx v i (VRef (RVObj obj)) = putValue i (VRef (RVObj (insert vidx v obj)))
-    evalPutIntoObj _    _ _ _                  = gscError "Type is not indexable, must be an object/array"
+    evalPutIntoObj :: Value -> Value -> Value -> GscM ()
+    evalPutIntoObj vidx v (VRef ref) = do vstore <- getValue storeIdent
+                                          case vstore of
+                                            (VStore store) -> case Data.Map.lookup ref store of
+                                                                (Just obj) -> let obj'   = Data.Map.insert vidx v obj
+                                                                                  store' = Data.Map.insert ref obj' store
+                                                                                  in putValue storeIdent (VStore store')
+                                                                Nothing    -> gscError "Invalid object reference"
+    evalPutIntoObj _    _ _          = gscError "Type is not indexable, must be an object/array"
 
 evalAssignEquals :: (Value -> Value -> GscM Value) -> LValue -> Expr -> GscM ()
 evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
@@ -269,8 +295,17 @@ evalStmt (AssignExprStmt (PostDec (Var lv))) = evalAssignEquals evalSub lv (IntL
 evalStmt (AssignExprStmt (PreDec (Var lv)))  = evalAssignEquals evalSub lv (IntLit 1)
 evalStmt (AssignExprStmt _)                  = gscError "Cannot use operators ++ or -- with non-lvalue"
 
+storeIdent :: Identifier
+storeIdent = "*objects"
+
+nextObjIdIdent :: Identifier
+nextObjIdIdent = "*nextObjId"
+
+emptyEnv :: GscEnv
+emptyEnv = fromList [(storeIdent, VStore empty), (nextObjIdIdent, VInt 0)]
+
 startThreadState :: GscProcess
-startThreadState = startThreadStateEnv empty
+startThreadState = startThreadStateEnv emptyEnv
 
 startThreadStateEnv :: Map Identifier Value -> GscProcess
 startThreadStateEnv env = GscPRunning (GscState [] env (return ()))

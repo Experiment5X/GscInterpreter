@@ -66,6 +66,6 @@ repl env = do putStr "~> "
 main :: IO ()
 main = do args <- getArgs
           if null args
-             then repl Map.empty
+             then repl emptyEnv
              else mapM_ parseFile args
           
