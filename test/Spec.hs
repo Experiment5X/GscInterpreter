@@ -1,12 +1,29 @@
 import Test.HUnit
 import LanguageStructure
 import Parser
+import Interpreter
+import qualified Data.Map as Map
 
 
 parseStatementT :: String -> Stmt
 parseStatementT s = case parseStatement s of
                       (Left _)  -> error ("parse error: " ++ s)
                       (Right e) -> e
+
+parseExprT :: String -> Expr
+parseExprT s = case parseExpression s of
+                 (Left _)  -> error ("parse error: " ++ s)
+                 (Right e) -> e
+
+evalExprT :: Expr -> Value
+evalExprT e = case evalExpr2 e Map.empty of
+                (Left _)  -> error ("eval error: " ++ show e)
+                (Right v) -> v
+                
+evalStmtT :: Stmt -> GscEnv
+evalStmtT stmt = case evalStmt2 stmt Map.empty of
+                   (Left _)  -> error ("eval error: " ++ show stmt)
+                   (Right v) -> v
 
 parseStatementTests :: Test
 parseStatementTests =
@@ -68,7 +85,30 @@ parseStatementTests =
                     , parseStatementT ";;;" ~?= Seq [Seq [],Seq [],Seq []]
                     , parseStatementT "childthread noself_delayCall( delay );" ~?= FunctionCallS (FunctionCallE Nothing ChildThread (Left (LValue (Qualifier []) [LValueComp "noself_delayCall" []])) [Var (LValue (Qualifier []) [LValueComp "delay" []])])
                     ]
+                    
+evalExprTests :: Test
+evalExprTests = 
+     TestList [ evalExprT (parseExprT "3 + 6 * 10") ~?= VInt 63
+              ]
+              
+evalStmtTests :: Test
+evalStmtTests = 
+     TestList [ Map.toList (evalStmtT (parseStatementT "a = 5; b = a * 2;")) ~?= [("a", VInt 5), ("b", VInt 10)]
+              ]
 
 main :: IO ()
-main = do c <- runTestTT parseStatementTests
-          print c
+main = do putStrLn "Parsing Tests"
+          c1 <- runTestTT parseStatementTests
+          print c1
+          
+          putStrLn ""
+          
+          putStrLn "Eval Expression Tests"
+          c2 <- runTestTT evalExprTests
+          print c2
+          
+          putStrLn ""
+          
+          putStrLn "Eval Statement Tests"
+          c3 <- runTestTT evalStmtTests
+          print c3

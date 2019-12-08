@@ -210,6 +210,7 @@ evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
 evalStmt :: Stmt -> GscM ()
 evalStmt (Assign lv expr)       = do v <- evalExpr expr
                                      evalPutIntoLValue v lv
+evalStmt (Seq stmts)            = mapM_ evalStmt stmts
                                      
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
 evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
