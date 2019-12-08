@@ -239,10 +239,20 @@ evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
                                                                vf <- evalOp v1 v2
                                                                putValue i vf
 
+evalCondStmt :: [CondStmt] -> Maybe Stmt -> GscM ()
+evalCondStmt [] Nothing                    = return ()
+evalCondStmt [] (Just stmt)                = evalStmt stmt
+evalCondStmt (CondStmt cond stmt:cs) melse = do v <- evalExpr cond 
+                                                case implicitBoolConvert v of
+                                                  (VBool True)  -> evalStmt stmt
+                                                  (VBool False) -> evalCondStmt cs melse
+
 evalStmt :: Stmt -> GscM ()
-evalStmt (Assign lv expr)       = do v <- evalExpr expr
-                                     evalPutIntoLValue v lv
-evalStmt (Seq stmts)            = mapM_ evalStmt stmts
+evalStmt (Assign lv expr)          = do v <- evalExpr expr
+                                        evalPutIntoLValue v lv
+evalStmt (Seq stmts)               = mapM_ evalStmt stmts
+evalStmt (CondStructStmt cs melse) = evalCondStmt cs melse
+evalStmt Break                     = return ()
 
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
 evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
@@ -257,6 +267,7 @@ evalStmt (AssignExprStmt (PostInc (Var lv))) = evalAssignEquals evalAdd lv (IntL
 evalStmt (AssignExprStmt (PreInc (Var lv)))  = evalAssignEquals evalAdd lv (IntLit 1)
 evalStmt (AssignExprStmt (PostDec (Var lv))) = evalAssignEquals evalSub lv (IntLit 1)
 evalStmt (AssignExprStmt (PreDec (Var lv)))  = evalAssignEquals evalSub lv (IntLit 1)
+evalStmt (AssignExprStmt _)                  = gscError "Cannot use operators ++ or -- with non-lvalue"
 
 startThreadState :: GscProcess
 startThreadState = startThreadStateEnv empty

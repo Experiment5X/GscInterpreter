@@ -98,6 +98,8 @@ evalExprTests =
 evalStmtTests :: Test
 evalStmtTests = 
      TestList [ Map.toList (evalStmtT (parseStatementT "a = 5; b = a * 2;")) ~?= [("a", VInt 5), ("b", VInt 10)]
+              , Map.toList (evalStmtT (parseStatementT "if (5 == 6) { a = \"bad\"; } else { a= \"good\"; }")) ~?= [("a",VString "good")]
+              , Map.toList (evalStmtT (parseStatementT "switch (9) { case 8: a = 0; break; case 9: a = 1; break; default: a = 2; break; }")) ~?= [("a",VInt 1)]
               ]
 
 main :: IO ()
