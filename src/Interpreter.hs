@@ -200,15 +200,30 @@ evalPutIntoLValue v (LValue q [LValueComp i [e]]) = do vidx <- evalExpr e
   where
     evalPutIntoObj vidx v i (VRef (RVObj obj)) = putValue i (VRef (RVObj (insert vidx v obj)))
     evalPutIntoObj _    _ _ _                  = gscError "Type is not indexable, must be an object/array"
-                                                        
+
+evalAssignEquals :: (Value -> Value -> GscM Value) -> LValue -> Expr -> GscM ()
+evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
+                                                               v2 <- evalExpr expr
+                                                               vf <- evalOp v1 v2
+                                                               putValue i vf
 
 evalStmt :: Stmt -> GscM ()
-evalStmt (Assign lv expr)                               = do v <- evalExpr expr
-                                                             evalPutIntoLValue v lv
-evalStmt (PlusEquals (LValue _ [LValueComp i []]) expr) = do v1 <- getValue i
-                                                             v2 <- evalExpr expr
-                                                             vf <- evalAdd v1 v2
-                                                             putValue i vf
+evalStmt (Assign lv expr)       = do v <- evalExpr expr
+                                     evalPutIntoLValue v lv
+                                     
+evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
+evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
+evalStmt (TimesEquals lv expr)  = evalAssignEquals evalMul lv expr
+evalStmt (DivideEquals lv expr) = evalAssignEquals evalDiv lv expr
+evalStmt (ModEquals lv expr)    = evalAssignEquals evalMod lv expr
+evalStmt (AndEquals lv expr)    = evalAssignEquals evalAAnd lv expr
+evalStmt (OrEquals lv expr)     = evalAssignEquals evalAOr lv expr
+evalStmt (XorEquals lv expr)    = evalAssignEquals evalAXor lv expr
+
+evalStmt (AssignExprStmt (PostInc (Var lv))) = evalAssignEquals evalAdd lv (IntLit 1)
+evalStmt (AssignExprStmt (PreInc (Var lv)))  = evalAssignEquals evalAdd lv (IntLit 1)
+evalStmt (AssignExprStmt (PostDec (Var lv))) = evalAssignEquals evalSub lv (IntLit 1)
+evalStmt (AssignExprStmt (PreDec (Var lv)))  = evalAssignEquals evalSub lv (IntLit 1)
 
 startThreadState :: GscProcess
 startThreadState = startThreadStateEnv empty
