@@ -226,6 +226,10 @@ evalArrMapLookup idx (VRef ref) = do vstore <- getValue storeIdent
                                                            Nothing    -> gscError "Invalid object reference"
 evalArrMapLookup _   _          = gscError "Variable is not indexible"
 
+lvCompsToExprs :: [LValueComp] -> [Expr]
+lvCompsToExprs []                     = []
+lvCompsToExprs (LValueComp i es:lvcs) = (StringLit i : es) ++ lvCompsToExprs lvcs
+
 evalArrMapIndices :: Identifier -> [Expr] -> GscM Value
 evalArrMapIndices i es = do v <- getValue i
                             evalAllIndices v es
@@ -234,6 +238,10 @@ evalArrMapIndices i es = do v <- getValue i
     evalAllIndices v (e:es') = do idx <- evalExpr e
                                   v'  <- evalArrMapLookup idx v
                                   evalAllIndices v' es'
+                              
+evalLValue :: LValue -> GscM Value
+evalLValue (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lvCompsToExprs lvcs
+                                               in evalArrMapIndices i idxs
 
 evalExpr :: Expr -> GscM Value
 evalExpr (BoolLit b)       = return (VBool b)
@@ -244,8 +252,8 @@ evalExpr (ListLit es)      = evalListLit es
 evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 v2 <- evalExpr e2
                                 evalBinOp op v1 v2
-evalExpr (Var (LValue _ [LValueComp i es])) = evalArrMapIndices i es
-                                                  
+evalExpr (Var lv)          = evalLValue lv
+
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
@@ -275,7 +283,7 @@ evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
 evalCondStmt :: [CondStmt] -> Maybe Stmt -> GscM ()
 evalCondStmt [] Nothing                    = return ()
 evalCondStmt [] (Just stmt)                = evalStmt stmt
-evalCondStmt (CondStmt cond stmt:cs) melse = do v <- evalExpr cond 
+evalCondStmt (CondStmt cond stmt:cs) melse = do v <- evalExpr cond
                                                 case implicitBoolConvert v of
                                                   (VBool True)  -> evalStmt stmt
                                                   (VBool False) -> evalCondStmt cs melse
