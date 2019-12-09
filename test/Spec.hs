@@ -103,6 +103,7 @@ evalStmtTests =
               , Map.toList (evalStmtT (parseStatementT "a = [1,2,3]; b = a; a[0] = 20; if (b[0] == 20) c = \"success\";")) ~?= [("*nextObjId",VInt 1),("*objects",VStore (Map.fromList [(0,Map.fromList [(VInt 0,VInt 20),(VInt 1,VInt 2),(VInt 2,VInt 3)])])),("a",VRef 0),("b",VRef 0),("c",VString "success")]
               , Map.toList (evalStmtT (parseStatementT "a = []; a[\"name\"] = \"adam\"; b = a.name;")) ~?= [("*nextObjId",VInt 1),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "name",VString "adam")])])),("a",VRef 0),("b",VString "adam")]
               , Map.toList (evalStmtT (parseStatementT "addr = []; addr[\"street\"] = \"123 Main\"; person = []; person[\"address\"] = addr; street = person.address.street;")) ~?= [("*nextObjId",VInt 2),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "street",VString "123 Main")]),(1,Map.fromList [(VString "address",VRef 0)])])),("addr",VRef 0),("person",VRef 1),("street",VString "123 Main")]
+              , Map.toList (evalStmtT (parseStatementT "person = []; person.name = \"Adam\"; person.address = []; person.address.street = \"Main Street\"; street = person.address.street;")) ~?= [("*nextObjId",VInt 2),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "address",VRef 1),(VString "name",VString "Adam")]),(1,Map.fromList [(VString "street",VString "Main Street")])])),("person",VRef 0),("street",VString "Main Street")]
               ]
 
 main :: IO ()

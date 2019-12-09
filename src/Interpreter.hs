@@ -216,15 +216,15 @@ evalExpr2 expr = runGscMWithEnv (evalExpr expr)
 evalStmt2 :: Stmt -> GscEnv -> Either String GscEnv
 evalStmt2 stmt = runGscMWithEnv (evalStmt stmt >> getEnv)
 
-evalArrMapLookup :: Value -> Value -> GscM Value
-evalArrMapLookup idx (VRef ref) = do vstore <- getValue storeIdent
+evalObjRefLookup :: Value -> Value -> GscM Value
+evalObjRefLookup idx (VRef ref) = do vstore <- getValue storeIdent
                                      case vstore of
                                        (VStore store) -> case Data.Map.lookup ref store of
                                                            (Just obj) -> case Data.Map.lookup idx obj of
                                                                            (Just v) -> return v
                                                                            Nothing  -> gscError ("No value at index " ++ show idx)
                                                            Nothing    -> gscError "Invalid object reference"
-evalArrMapLookup _   _          = gscError "Variable is not indexible"
+evalObjRefLookup _   _          = gscError "Variable is not indexible"
 
 lvCompsToExprs :: [LValueComp] -> [Expr]
 lvCompsToExprs []                     = []
@@ -236,12 +236,24 @@ evalArrMapIndices i es = do v <- getValue i
   where
     evalAllIndices v []      = return v
     evalAllIndices v (e:es') = do idx <- evalExpr e
-                                  v'  <- evalArrMapLookup idx v
+                                  v'  <- evalObjRefLookup idx v
                                   evalAllIndices v' es'
-                              
+
 evalLValue :: LValue -> GscM Value
 evalLValue (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lvCompsToExprs lvcs
                                                in evalArrMapIndices i idxs
+                          
+-- get the object reference of the second-last object in the lvalue, and return the 
+-- final expression in the lvalue which will be created for assignment into it
+-- ex:
+-- a.b["adam"]
+-- would return b's object reference and the expression (StringLit "adam")                     
+evalLValueObjRefAndIndex :: LValue -> GscM (Value, Expr)
+evalLValueObjRefAndIndex (LValue _ [])                     = gscError "empty lvalue"
+evalLValueObjRefAndIndex (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lvCompsToExprs lvcs
+                                                                 eidx  = last idxs
+                                                             in do v <- evalArrMapIndices i (init idxs)
+                                                                   return (v, eidx)
 
 evalExpr :: Expr -> GscM Value
 evalExpr (BoolLit b)       = return (VBool b)
@@ -260,8 +272,8 @@ evalMExpr mexpr = do expr <- mexpr
 
 evalPutIntoLValue :: Value -> LValue -> GscM ()
 evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v
-evalPutIntoLValue v (LValue q [LValueComp i [e]]) = do vidx   <- evalExpr e
-                                                       objRef <- getValue i
+evalPutIntoLValue v lv                            = do (objRef, eidx) <- evalLValueObjRefAndIndex lv
+                                                       vidx   <- evalExpr eidx
                                                        evalPutIntoObj vidx v objRef
   where
     evalPutIntoObj :: Value -> Value -> Value -> GscM ()
