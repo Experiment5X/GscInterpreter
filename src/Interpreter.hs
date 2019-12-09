@@ -300,11 +300,18 @@ evalCondStmt (CondStmt cond stmt:cs) melse = do v <- evalExpr cond
                                                   (VBool True)  -> evalStmt stmt
                                                   (VBool False) -> evalCondStmt cs melse
 
+evalWhileStmt :: Expr -> Stmt -> GscM ()
+evalWhileStmt cond stmt = do v <- evalExpr cond
+                             case implicitBoolConvert v of
+                               (VBool True)  -> evalStmt stmt >> evalWhileStmt cond stmt
+                               (VBool False) -> return ()
+                            
 evalStmt :: Stmt -> GscM ()
 evalStmt (Assign lv expr)          = do v <- evalExpr expr
                                         evalPutIntoLValue v lv
 evalStmt (Seq stmts)               = mapM_ evalStmt stmts
 evalStmt (CondStructStmt cs melse) = evalCondStmt cs melse
+evalStmt (WhileStmt expr stmt)     = evalWhileStmt expr stmt
 evalStmt Break                     = return ()
 
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr

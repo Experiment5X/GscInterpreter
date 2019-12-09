@@ -104,6 +104,7 @@ evalStmtTests =
               , Map.toList (evalStmtT (parseStatementT "a = []; a[\"name\"] = \"adam\"; b = a.name;")) ~?= [("*nextObjId",VInt 1),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "name",VString "adam")])])),("a",VRef 0),("b",VString "adam")]
               , Map.toList (evalStmtT (parseStatementT "addr = []; addr[\"street\"] = \"123 Main\"; person = []; person[\"address\"] = addr; street = person.address.street;")) ~?= [("*nextObjId",VInt 2),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "street",VString "123 Main")]),(1,Map.fromList [(VString "address",VRef 0)])])),("addr",VRef 0),("person",VRef 1),("street",VString "123 Main")]
               , Map.toList (evalStmtT (parseStatementT "person = []; person.name = \"Adam\"; person.address = []; person.address.street = \"Main Street\"; street = person.address.street;")) ~?= [("*nextObjId",VInt 2),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "address",VRef 1),(VString "name",VString "Adam")]),(1,Map.fromList [(VString "street",VString "Main Street")])])),("person",VRef 0),("street",VString "Main Street")]
+              , Map.toList (evalStmtT (parseStatementT "a = 0; b = 1; while (a < 10) { b *= 2; a++; } ")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("a",VInt 10),("b",VInt 1024)]
               ]
 
 main :: IO ()
