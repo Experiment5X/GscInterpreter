@@ -16,12 +16,12 @@ parseExprT s = case parseExpression s of
                  (Right e) -> e
 
 evalExprT :: Expr -> Value
-evalExprT e = case evalExpr2 e Map.empty of
+evalExprT e = case evalExpr2 e emptyEnv of
                 (Left _)  -> error ("eval error: " ++ show e)
                 (Right v) -> v
                 
 evalStmtT :: Stmt -> GscEnv
-evalStmtT stmt = case evalStmt2 stmt Map.empty of
+evalStmtT stmt = case evalStmt2 stmt emptyEnv of
                    (Left _)  -> error ("eval error: " ++ show stmt)
                    (Right v) -> v
 
@@ -97,9 +97,12 @@ evalExprTests =
               
 evalStmtTests :: Test
 evalStmtTests = 
-     TestList [ Map.toList (evalStmtT (parseStatementT "a = 5; b = a * 2;")) ~?= [("a", VInt 5), ("b", VInt 10)]
-              , Map.toList (evalStmtT (parseStatementT "if (5 == 6) { a = \"bad\"; } else { a= \"good\"; }")) ~?= [("a",VString "good")]
-              , Map.toList (evalStmtT (parseStatementT "switch (9) { case 8: a = 0; break; case 9: a = 1; break; default: a = 2; break; }")) ~?= [("a",VInt 1)]
+     TestList [ Map.toList (evalStmtT (parseStatementT "a = 5; b = a * 2;")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("a",VInt 5),("b",VInt 10)]
+              , Map.toList (evalStmtT (parseStatementT "if (5 == 6) { a = \"bad\"; } else { a= \"good\"; }")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("a",VString "good")]
+              , Map.toList (evalStmtT (parseStatementT "switch (9) { case 8: a = 0; break; case 9: a = 1; break; default: a = 2; break; }")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("a",VInt 1)]
+              , Map.toList (evalStmtT (parseStatementT "a = [1,2,3]; b = a; a[0] = 20; if (b[0] == 20) c = \"success\";")) ~?= [("*nextObjId",VInt 1),("*objects",VStore (Map.fromList [(0,Map.fromList [(VInt 0,VInt 20),(VInt 1,VInt 2),(VInt 2,VInt 3)])])),("a",VRef 0),("b",VRef 0),("c",VString "success")]
+              , Map.toList (evalStmtT (parseStatementT "a = []; a[\"name\"] = \"adam\"; b = a.name;")) ~?= [("*nextObjId",VInt 1),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "name",VString "adam")])])),("a",VRef 0),("b",VString "adam")]
+              , Map.toList (evalStmtT (parseStatementT "addr = []; addr[\"street\"] = \"123 Main\"; person = []; person[\"address\"] = addr; street = person.address.street;")) ~?= [("*nextObjId",VInt 2),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "street",VString "123 Main")]),(1,Map.fromList [(VString "address",VRef 0)])])),("addr",VRef 0),("person",VRef 1),("street",VString "123 Main")]
               ]
 
 main :: IO ()
