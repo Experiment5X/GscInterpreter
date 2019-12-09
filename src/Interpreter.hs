@@ -305,14 +305,28 @@ evalWhileStmt cond stmt = do v <- evalExpr cond
                              case implicitBoolConvert v of
                                (VBool True)  -> evalStmt stmt >> evalWhileStmt cond stmt
                                (VBool False) -> return ()
+
+evalForStmt :: Maybe Stmt -> Expr -> Maybe Stmt -> Stmt -> GscM ()
+evalForStmt minit cond mupd stmt = case minit of
+                                     (Just init) -> evalStmt init >> loop
+                                     Nothing     -> loop
+  where
+    loop = do v <- evalExpr cond
+              case v of
+                (VBool True)  -> do evalStmt stmt
+                                    case mupd of
+                                      (Just upd) -> evalStmt upd >> loop
+                                      Nothing    -> loop
+                (VBool False) -> return ()
                             
 evalStmt :: Stmt -> GscM ()
-evalStmt (Assign lv expr)          = do v <- evalExpr expr
-                                        evalPutIntoLValue v lv
-evalStmt (Seq stmts)               = mapM_ evalStmt stmts
-evalStmt (CondStructStmt cs melse) = evalCondStmt cs melse
-evalStmt (WhileStmt expr stmt)     = evalWhileStmt expr stmt
-evalStmt Break                     = return ()
+evalStmt (Assign lv expr)               = do v <- evalExpr expr
+                                             evalPutIntoLValue v lv
+evalStmt (Seq stmts)                    = mapM_ evalStmt stmts
+evalStmt (CondStructStmt cs melse)      = evalCondStmt cs melse
+evalStmt (WhileStmt expr stmt)          = evalWhileStmt expr stmt
+evalStmt (ForStmt minit cond mupd stmt) = evalForStmt minit cond mupd stmt
+evalStmt Break                          = return ()
 
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
 evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
