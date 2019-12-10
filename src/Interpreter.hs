@@ -5,13 +5,13 @@ module Interpreter where
 
 import Data.Map
 import Data.Bits
-import Control.Monad.Except;
+import Control.Monad.Except
 import LanguageStructure
 
 type Identifier = String
 
 type GscEnv = Map Identifier Value
-data GscState = GscState [Stmt] GscEnv (IO ())
+data GscState = GscState [Stmt] GscEnv [StructureType] (IO ())
 data GscProcess = GscPRunning GscState | GscPError String GscState
 data GscAppState = GscAppState Int [GscM ()] (Maybe GscEnv)
 
@@ -50,27 +50,52 @@ putState t = GscM (const (GscVal (), t))
 getEnv :: GscM GscEnv
 getEnv = do st <- getState
             case st of
-              (GscPRunning (GscState _ env _)) -> return env
-              (GscPError _ (GscState _ env _)) -> return env
+              (GscPRunning (GscState _ env _ _)) -> return env
+              (GscPError _ (GscState _ env _ _)) -> return env
 
 getValue :: Identifier -> GscM Value
 getValue i = do st <- getState
                 case st of
-                  (GscPRunning (GscState _ env _)) -> case Data.Map.lookup i env of
-                                                        (Just val) -> return val
-                                                        Nothing    -> gscError ("Identifier " ++ show i ++ " not defined")
+                  (GscPRunning (GscState _ env _ _)) -> case Data.Map.lookup i env of
+                                                          (Just val) -> return val
+                                                          Nothing    -> gscError ("Identifier " ++ show i ++ " not defined")
 
 putValue :: Identifier -> Value -> GscM ()
 putValue i v = do st <- getState
-                  let (GscPRunning (GscState stmts env io)) = st
-                      env'                                  = Data.Map.insert i v env
-                      in do putState (GscPRunning (GscState stmts env' io))
+                  let (GscPRunning (GscState stmts env stck io)) = st
+                      env'                                       = Data.Map.insert i v env
+                      in do putState (GscPRunning (GscState stmts env' stck io))
                             return ()
 
 gscError :: String -> GscM a
 gscError err = GscM (\ t -> case t of
                               (GscPRunning st)    -> (GscErr, GscPError err st)
                               (GscPError err' st) -> (GscErr, GscPError err' st))
+
+data StructureType   = FunctionCall | Loop | If | Root deriving (Show, Eq)
+data StatementResult = Success | BreakResult | ContinueResult deriving (Show, Eq)
+
+getCurStructType :: GscM StructureType
+getCurStructType = do st <- getState
+                      case st of
+                        (GscPRunning (GscState _ _ [] _))     -> gscError "No current structure type"
+                        (GscPRunning (GscState _ _ (c:cs) _)) -> return c
+                        _                                     -> gscError "Cannot get struct type of errored process"
+
+popCurStructType :: GscM StructureType
+popCurStructType = do st <- getState
+                      case st of
+                        (GscPRunning (GscState _ _ [] _))            -> gscError "No current structure type"
+                        (GscPRunning (GscState stmts env (c:cs) io)) -> do putState (GscPRunning (GscState stmts env cs io))
+                                                                           return c
+                        _                                            -> gscError "Cannot pop struct type of errored process"
+
+pushCurStructType :: StructureType -> GscM ()
+pushCurStructType c = do st <- getState
+                         case st of
+                           (GscPRunning (GscState _ _ [] _))        -> gscError "No current structure type"
+                           (GscPRunning (GscState stmts env cs io)) -> putState (GscPRunning (GscState stmts env (c:cs) io))
+                           _                                        -> gscError "Cannot pop struct type of errored process"
 
 data Value = VString String
            | VList [Value]
@@ -270,11 +295,12 @@ evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
 
-evalPutIntoLValue :: Value -> LValue -> GscM ()
-evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v
+evalPutIntoLValue :: Value -> LValue -> GscM StatementResult
+evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v >> return Success
 evalPutIntoLValue v lv                            = do (objRef, eidx) <- evalLValueObjRefAndIndex lv
                                                        vidx   <- evalExpr eidx
                                                        evalPutIntoObj vidx v objRef
+                                                       return Success
   where
     evalPutIntoObj :: Value -> Value -> Value -> GscM ()
     evalPutIntoObj vidx v (VRef ref) = do vstore <- getValue storeIdent
@@ -286,47 +312,69 @@ evalPutIntoLValue v lv                            = do (objRef, eidx) <- evalLVa
                                                                 Nothing    -> gscError "Invalid object reference"
     evalPutIntoObj _    _ _          = gscError "Type is not indexable, must be an object/array"
 
-evalAssignEquals :: (Value -> Value -> GscM Value) -> LValue -> Expr -> GscM ()
+evalAssignEquals :: (Value -> Value -> GscM Value) -> LValue -> Expr -> GscM StatementResult
 evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
                                                                v2 <- evalExpr expr
                                                                vf <- evalOp v1 v2
                                                                putValue i vf
+                                                               return Success
 
-evalCondStmt :: [CondStmt] -> Maybe Stmt -> GscM ()
-evalCondStmt [] Nothing                    = return ()
-evalCondStmt [] (Just stmt)                = evalStmt stmt
+evalCondStmt :: [CondStmt] -> Maybe Stmt -> GscM StatementResult
+evalCondStmt [] Nothing                    = return Success
+evalCondStmt [] (Just stmt)                = do pushCurStructType If
+                                                evalStmt stmt
+                                                popCurStructType
+                                                return Success
 evalCondStmt (CondStmt cond stmt:cs) melse = do v <- evalExpr cond
                                                 case implicitBoolConvert v of
                                                   (VBool True)  -> evalStmt stmt
                                                   (VBool False) -> evalCondStmt cs melse
 
-evalWhileStmt :: Expr -> Stmt -> GscM ()
+evalWhileStmt :: Expr -> Stmt -> GscM StatementResult
 evalWhileStmt cond stmt = do v <- evalExpr cond
                              case implicitBoolConvert v of
-                               (VBool True)  -> evalStmt stmt >> evalWhileStmt cond stmt
-                               (VBool False) -> return ()
+                               (VBool True)  -> do pushCurStructType Loop
+                                                   r <- evalStmt stmt
+                                                   popCurStructType
+                                                   case r of
+                                                     BreakResult -> return Success
+                                                     _           -> do evalWhileStmt cond stmt
+                                                                       return Success
+                               (VBool False) -> return Success
 
-evalForStmt :: Maybe Stmt -> Expr -> Maybe Stmt -> Stmt -> GscM ()
+evalForStmt :: Maybe Stmt -> Expr -> Maybe Stmt -> Stmt -> GscM StatementResult
 evalForStmt minit cond mupd stmt = case minit of
                                      (Just init) -> evalStmt init >> loop
                                      Nothing     -> loop
   where
     loop = do v <- evalExpr cond
               case v of
-                (VBool True)  -> do evalStmt stmt
-                                    case mupd of
-                                      (Just upd) -> evalStmt upd >> loop
-                                      Nothing    -> loop
-                (VBool False) -> return ()
-                            
-evalStmt :: Stmt -> GscM ()
+                (VBool True)  -> do pushCurStructType Loop
+                                    r <- evalStmt stmt
+                                    popCurStructType
+                                    case r of
+                                      BreakResult -> return Success
+                                      _           -> case mupd of
+                                                       (Just upd) -> evalStmt upd >> loop
+                                                       Nothing    -> loop
+                (VBool False) -> return Success
+                
+evalSeq :: [Stmt] -> GscM StatementResult
+evalSeq []      = return Success
+evalSeq (s:sts) = do r <- evalStmt s
+                     case r of
+                       Success        -> evalSeq sts
+                       BreakResult    -> return BreakResult
+                       ContinueResult -> gscError "Continue is not implemented"
+ 
+evalStmt :: Stmt -> GscM StatementResult
 evalStmt (Assign lv expr)               = do v <- evalExpr expr
                                              evalPutIntoLValue v lv
-evalStmt (Seq stmts)                    = mapM_ evalStmt stmts
+evalStmt (Seq stmts)                    = evalSeq stmts
 evalStmt (CondStructStmt cs melse)      = evalCondStmt cs melse
 evalStmt (WhileStmt expr stmt)          = evalWhileStmt expr stmt
 evalStmt (ForStmt minit cond mupd stmt) = evalForStmt minit cond mupd stmt
-evalStmt Break                          = return ()
+evalStmt Break                          = return BreakResult
 
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
 evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
@@ -356,7 +404,7 @@ startThreadState :: GscProcess
 startThreadState = startThreadStateEnv emptyEnv
 
 startThreadStateEnv :: Map Identifier Value -> GscProcess
-startThreadStateEnv env = GscPRunning (GscState [] env (return ()))
+startThreadStateEnv env = GscPRunning (GscState [] env [Root] (return ()))
 
 runGscMWithEnv :: GscM a -> GscEnv -> Either String a
 runGscMWithEnv (GscM f) env = case f (startThreadStateEnv env) of

@@ -106,6 +106,9 @@ evalStmtTests =
               , Map.toList (evalStmtT (parseStatementT "person = []; person.name = \"Adam\"; person.address = []; person.address.street = \"Main Street\"; street = person.address.street;")) ~?= [("*nextObjId",VInt 2),("*objects",VStore (Map.fromList [(0,Map.fromList [(VString "address",VRef 1),(VString "name",VString "Adam")]),(1,Map.fromList [(VString "street",VString "Main Street")])])),("person",VRef 0),("street",VString "Main Street")]
               , Map.toList (evalStmtT (parseStatementT "a = 0; b = 1; while (a < 10) { b *= 2; a++; } ")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("a",VInt 10),("b",VInt 1024)]
               , Map.toList (evalStmtT (parseStatementT "n = 1; for (i = 0; i < 10; i++) { n *= 2; }")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("i",VInt 10),("n",VInt 1024)]
+              , Map.toList (evalStmtT (parseStatementT "i = 0; n = 1; while (i < 10) { n *= 2; i++; if (n > 16) break; }")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("i",VInt 5),("n",VInt 32)]
+              , Map.toList (evalStmtT (parseStatementT "i = 0; j = 0; n = 1; while (i < 10) { i++; while (j < 10) { if (j > 3) break; j++; n++; } j = 0; }")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("i",VInt 10),("j",VInt 0),("n",VInt 41)]
+              , Map.toList (evalStmtT (parseStatementT "sum = 0; for (i = 0; i < 10; i++) { if (sum > 20) break; sum += i; }")) ~?= [("*nextObjId",VInt 0),("*objects",VStore (Map.fromList [])),("i",VInt 7),("sum",VInt 21)]
               ]
 
 main :: IO ()
