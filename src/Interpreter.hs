@@ -53,6 +53,12 @@ getEnv = do st <- getState
               (GscPRunning (GscState _ env _ _)) -> return env
               (GscPError _ (GscState _ env _ _)) -> return env
 
+setEnv :: GscEnv -> GscM ()
+setEnv env = do st <- getState
+                case st of
+                  (GscPRunning (GscState stmts _ sts io)) -> putState (GscPRunning (GscState stmts env sts io))
+                  (GscPError err (GscState stmts _ sts io)) -> putState (GscPError err (GscState stmts env sts io))
+
 getValue :: Identifier -> GscM Value
 getValue i = do st <- getState
                 case st of
@@ -73,7 +79,7 @@ gscError err = GscM (\ t -> case t of
                               (GscPError err' st) -> (GscErr, GscPError err' st))
 
 data StructureType   = FunctionCall | Loop | If | Root deriving (Show, Eq)
-data StatementResult = Success | BreakResult | ContinueResult deriving (Show, Eq)
+data StatementResult = Success | BreakResult | ContinueResult | ReturnResult Value deriving (Show, Eq)
 
 getCurStructType :: GscM StructureType
 getCurStructType = do st <- getState
@@ -102,9 +108,16 @@ data Value = VString String
            | VBool Bool
            | VInt Integer
            | VDouble Double
+           | VVoid          -- used for returning nothing from a function
            | VRef Integer
            | VStore (Map Integer RVObj)
+           | VFunctionDefs (Map Identifier IFunctionDef)
            deriving (Show, Eq, Ord)
+
+data IFunctionDef = IFunctionDef [Identifier] GscEnv Stmt deriving (Show, Eq, Ord)
+                      -- list of parameter names
+                      -- the environment where the function is defined
+                      -- the statement inside the function
 
 type RVObj = Map Value Value
 
@@ -115,6 +128,21 @@ type OpDouble  = Double  -> Double  -> Double
 type OpCInt    = Integer -> Integer -> Bool
 type OpCDouble = Double  -> Double  -> Bool
 type OpBool    = Bool    -> Bool    -> Bool
+
+putFunctionDef :: Identifier -> IFunctionDef -> GscM ()
+putFunctionDef fname fdef = do fdefs <- getValue functionDefsIdent
+                               case fdefs of
+                                 (VFunctionDefs defs) -> let defs' = insert fname fdef defs
+                                                         in putValue functionDefsIdent (VFunctionDefs defs')
+                                 _                    -> gscError "Invalid function defs type"
+
+getFunctionDef :: Identifier -> GscM IFunctionDef
+getFunctionDef fname = do fdefs <- getValue functionDefsIdent
+                          case fdefs of
+                            (VFunctionDefs defs) -> case Data.Map.lookup fname defs of
+                                                      (Just fdef) -> return fdef
+                                                      Nothing     -> gscError ("No function named " ++ fname)
+                            _                    -> gscError "Invalid function defs type"
 
 implicitBoolConvert :: Value -> Value
 implicitBoolConvert (VBool b)    = VBool b
@@ -267,18 +295,37 @@ evalArrMapIndices i es = do v <- getValue i
 evalLValue :: LValue -> GscM Value
 evalLValue (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lvCompsToExprs lvcs
                                                in evalArrMapIndices i idxs
-                          
--- get the object reference of the second-last object in the lvalue, and return the 
+
+-- get the object reference of the second-last object in the lvalue, and return the
 -- final expression in the lvalue which will be created for assignment into it
 -- ex:
 -- a.b["adam"]
--- would return b's object reference and the expression (StringLit "adam")                     
+-- would return b's object reference and the expression (StringLit "adam")
 evalLValueObjRefAndIndex :: LValue -> GscM (Value, Expr)
 evalLValueObjRefAndIndex (LValue _ [])                     = gscError "empty lvalue"
 evalLValueObjRefAndIndex (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lvCompsToExprs lvcs
                                                                  eidx  = last idxs
                                                              in do v <- evalArrMapIndices i (init idxs)
                                                                    return (v, eidx)
+
+evalFunctionCallExpr :: Identifier -> [Expr] -> GscM Value
+evalFunctionCallExpr nm args = do (IFunctionDef nmArgs fenv stmt) <- getFunctionDef nm
+                                  vargs <- mapM evalExpr args
+                                  if length vargs /= length nmArgs
+                                     then gscError ("Function " ++ nm ++ " takes " ++ show (length nmArgs) ++ " but " ++ show (length vargs) ++ " were supplied")
+                                     else do envOrig <- getEnv
+                                             setArgs (zip nmArgs vargs)
+                                             result  <- evalStmt stmt
+                                             store   <- getValue storeIdent
+                                             setEnv envOrig
+                                             putValue storeIdent store
+                                             case result of
+                                               (ReturnResult v) -> return v
+                                               _                -> gscError "Function didn't return a value"
+  where
+    setArgs []                    = return ()
+    setArgs ((nmArg, varg):pargs) = do putValue nmArg varg
+                                       setArgs pargs
 
 evalExpr :: Expr -> GscM Value
 evalExpr (BoolLit b)       = return (VBool b)
@@ -290,6 +337,8 @@ evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 v2 <- evalExpr e2
                                 evalBinOp op v1 v2
 evalExpr (Var lv)          = evalLValue lv
+
+evalExpr (FunctionCallE mobj ctype (Left (LValue _ [LValueComp nm []])) args) = evalFunctionCallExpr nm args
 
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
@@ -322,9 +371,9 @@ evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
 evalCondStmt :: [CondStmt] -> Maybe Stmt -> GscM StatementResult
 evalCondStmt [] Nothing                    = return Success
 evalCondStmt [] (Just stmt)                = do pushCurStructType If
-                                                evalStmt stmt
+                                                result <- evalStmt stmt
                                                 popCurStructType
-                                                return Success
+                                                return result
 evalCondStmt (CondStmt cond stmt:cs) melse = do v <- evalExpr cond
                                                 case implicitBoolConvert v of
                                                   (VBool True)  -> evalStmt stmt
@@ -337,7 +386,8 @@ evalWhileStmt cond stmt = do v <- evalExpr cond
                                                    r <- evalStmt stmt
                                                    popCurStructType
                                                    case r of
-                                                     BreakResult -> return Success
+                                                     BreakResult      -> return Success
+                                                     (ReturnResult v) -> return (ReturnResult v)
                                                      _           -> do evalWhileStmt cond stmt
                                                                        return Success
                                (VBool False) -> return Success
@@ -353,20 +403,33 @@ evalForStmt minit cond mupd stmt = case minit of
                                     r <- evalStmt stmt
                                     popCurStructType
                                     case r of
-                                      BreakResult -> return Success
-                                      _           -> case mupd of
-                                                       (Just upd) -> evalStmt upd >> loop
-                                                       Nothing    -> loop
+                                      BreakResult      -> return Success
+                                      (ReturnResult v) -> return (ReturnResult v)
+                                      _                -> case mupd of
+                                                            (Just upd) -> evalStmt upd >> loop
+                                                            Nothing    -> loop
                 (VBool False) -> return Success
-                
+
+evalFunctionDef :: String -> [String] -> Stmt -> GscM StatementResult
+evalFunctionDef nm args body = do env <- getEnv
+                                  let ifunc = IFunctionDef args env body
+                                    in do putFunctionDef nm ifunc
+                                          return Success
+
 evalSeq :: [Stmt] -> GscM StatementResult
 evalSeq []      = return Success
 evalSeq (s:sts) = do r <- evalStmt s
                      case r of
-                       Success        -> evalSeq sts
-                       BreakResult    -> return BreakResult
-                       ContinueResult -> gscError "Continue is not implemented"
- 
+                       Success          -> evalSeq sts
+                       BreakResult      -> return BreakResult
+                       ContinueResult   -> gscError "Continue is not implemented"
+                       (ReturnResult v) -> return (ReturnResult v)
+
+evalReturnStmt :: Maybe Expr -> GscM StatementResult
+evalReturnStmt (Just expr) = do v <- evalExpr expr
+                                return (ReturnResult v)
+evalReturnStmt Nothing     = return (ReturnResult VVoid)
+
 evalStmt :: Stmt -> GscM StatementResult
 evalStmt (Assign lv expr)               = do v <- evalExpr expr
                                              evalPutIntoLValue v lv
@@ -374,7 +437,10 @@ evalStmt (Seq stmts)                    = evalSeq stmts
 evalStmt (CondStructStmt cs melse)      = evalCondStmt cs melse
 evalStmt (WhileStmt expr stmt)          = evalWhileStmt expr stmt
 evalStmt (ForStmt minit cond mupd stmt) = evalForStmt minit cond mupd stmt
+evalStmt (FunctionDef nm args body)     = evalFunctionDef nm args body
+evalStmt (FunctionCallS funcCallExpr)   = evalExpr funcCallExpr >> return Success
 evalStmt Break                          = return BreakResult
+evalStmt (ReturnStmt mexpr)             = evalReturnStmt mexpr
 
 evalStmt (PlusEquals lv expr)   = evalAssignEquals evalAdd lv expr
 evalStmt (MinusEquals lv expr)  = evalAssignEquals evalSub lv expr
@@ -397,8 +463,13 @@ storeIdent = "*objects"
 nextObjIdIdent :: Identifier
 nextObjIdIdent = "*nextObjId"
 
+functionDefsIdent :: Identifier
+functionDefsIdent = "*functionDefs"
+
 emptyEnv :: GscEnv
-emptyEnv = fromList [(storeIdent, VStore empty), (nextObjIdIdent, VInt 0)]
+emptyEnv = fromList [(storeIdent, VStore empty),
+                     (nextObjIdIdent, VInt 0),
+                     (functionDefsIdent, VFunctionDefs empty)]
 
 startThreadState :: GscProcess
 startThreadState = startThreadStateEnv emptyEnv

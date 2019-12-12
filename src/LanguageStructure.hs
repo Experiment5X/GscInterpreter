@@ -68,13 +68,13 @@ data BinOp = Add
             | LessEq
             | Equal
             | NotEqual
-              deriving (Show, Eq)
+              deriving (Show, Eq, Ord)
 
-newtype Qualifier = Qualifier [String] deriving (Show, Eq)
+newtype Qualifier = Qualifier [String] deriving (Show, Eq, Ord)
 
-newtype FuncDereference = FuncDereference LValue deriving (Show, Eq)
+newtype FuncDereference = FuncDereference LValue deriving (Show, Eq, Ord)
 
-data FuncCallType = Default | Thread | ChildThread | Call deriving (Show, Eq)
+data FuncCallType = Default | Thread | ChildThread | Call deriving (Show, Eq, Ord)
 data Expr = Var LValue
            | RValueExpr Expr [Expr] [LValueComp]
            | IntLit Integer
@@ -96,12 +96,12 @@ data Expr = Var LValue
            | FunctionCallE (Maybe LValue) FuncCallType (Either LValue FuncDereference) [Expr]
            | FuncNameE Qualifier
            | BNot Expr
-             deriving (Show, Eq)
+             deriving (Show, Eq, Ord)
 
-data LValue = LValue Qualifier [LValueComp] deriving (Show, Eq) -- elements are separated by a dot, for digging into objects
-data LValueComp = LValueComp String [Expr] deriving (Show, Eq)  -- variable name, and any indices like: []
+data LValue = LValue Qualifier [LValueComp] deriving (Show, Eq, Ord) -- elements are separated by a dot, for digging into objects
+data LValueComp = LValueComp String [Expr] deriving (Show, Eq, Ord)  -- variable name, and any indices like: []
 
-data CondStmt = CondStmt Expr Stmt deriving (Show, Eq)
+data CondStmt = CondStmt Expr Stmt deriving (Show, Eq, Ord)
 
 data Stmt = Seq [Stmt]
           | Assign LValue Expr
@@ -128,7 +128,7 @@ data Stmt = Seq [Stmt]
           | AndEquals LValue Expr
           | OrEquals LValue Expr
           | XorEquals LValue Expr
-            deriving (Show, Eq)
+            deriving (Show, Eq, Ord)
 
 getOperators reservedOp =
             [  [Prefix  (reservedOp "-"   >> return Neg               )
