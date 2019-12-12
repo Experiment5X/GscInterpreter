@@ -47,6 +47,18 @@ getState = GscM (\ t -> (GscVal t, t))
 putState :: GscProcess -> GscM ()
 putState t = GscM (const (GscVal (), t))
 
+getIO :: GscM (IO ())
+getIO = do st <- getState
+           case st of
+             (GscPRunning (GscState _ _ _ io)) -> return io
+             (GscPError _ (GscState _ _ _ io)) -> return io
+
+putIO :: IO () -> GscM ()
+putIO io = do st <- getState
+              case st of
+                (GscPRunning (GscState stmts env sts io'))   -> putState (GscPRunning (GscState stmts env sts (io' >> io)))
+                (GscPError err (GscState stmts env sts io')) -> putState (GscPError err (GscState stmts env sts (io' >> io)))
+
 getEnv :: GscM GscEnv
 getEnv = do st <- getState
             case st of
@@ -112,7 +124,18 @@ data Value = VString String
            | VRef Integer
            | VStore (Map Integer RVObj)
            | VFunctionDefs (Map Identifier IFunctionDef)
-           deriving (Show, Eq, Ord)
+           deriving (Eq, Ord)
+
+instance Show Value where
+  show (VString s)        = s
+  show (VList vs)         = "[" ++ show vs ++ "]"
+  show (VBool b)          = show b
+  show (VInt i)           = show i
+  show (VDouble d)        = show d
+  show VVoid              = "void"
+  show (VRef o)           = "Object_" ++ show o
+  show (VStore s)         = show s
+  show (VFunctionDefs ds) = show ds
 
 data IFunctionDef = IFunctionDef [Identifier] GscEnv Stmt deriving (Show, Eq, Ord)
                       -- list of parameter names
@@ -269,6 +292,13 @@ evalExpr2 expr = runGscMWithEnv (evalExpr expr)
 evalStmt2 :: Stmt -> GscEnv -> Either String GscEnv
 evalStmt2 stmt = runGscMWithEnv (evalStmt stmt >> getEnv)
 
+evalMainFile :: Stmt -> Either String (IO ())
+evalMainFile stmt = runGscMWithEnv evalMain emptyEnv
+  where
+    evalMain = do evalStmt stmt
+                  evalFunctionCallExpr "main" []
+                  getIO
+
 evalObjRefLookup :: Value -> Value -> GscM Value
 evalObjRefLookup idx (VRef ref) = do vstore <- getValue storeIdent
                                      case vstore of
@@ -309,19 +339,23 @@ evalLValueObjRefAndIndex (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lv
                                                                    return (v, eidx)
 
 evalFunctionCallExpr :: Identifier -> [Expr] -> GscM Value
-evalFunctionCallExpr nm args = do (IFunctionDef nmArgs fenv stmt) <- getFunctionDef nm
-                                  vargs <- mapM evalExpr args
-                                  if length vargs /= length nmArgs
-                                     then gscError ("Function " ++ nm ++ " takes " ++ show (length nmArgs) ++ " but " ++ show (length vargs) ++ " were supplied")
-                                     else do envOrig <- getEnv
-                                             setArgs (zip nmArgs vargs)
-                                             result  <- evalStmt stmt
-                                             store   <- getValue storeIdent
-                                             setEnv envOrig
-                                             putValue storeIdent store
-                                             case result of
-                                               (ReturnResult v) -> return v
-                                               _                -> gscError "Function didn't return a value"
+evalFunctionCallExpr "print" args = do vargs <- mapM evalExpr args
+                                       let output = unwords (Prelude.map show vargs)
+                                          in do putIO (putStrLn output)
+                                                return VVoid
+evalFunctionCallExpr nm args      = do (IFunctionDef nmArgs fenv stmt) <- getFunctionDef nm
+                                       vargs <- mapM evalExpr args
+                                       if length vargs /= length nmArgs
+                                          then gscError ("Function " ++ nm ++ " takes " ++ show (length nmArgs) ++ " but " ++ show (length vargs) ++ " were supplied")
+                                          else do envOrig <- getEnv
+                                                  setArgs (zip nmArgs vargs)
+                                                  result  <- evalStmt stmt
+                                                  store   <- getValue storeIdent
+                                                  setEnv envOrig
+                                                  putValue storeIdent store
+                                                  case result of
+                                                    (ReturnResult v) -> return v
+                                                    _                -> return VVoid
   where
     setArgs []                    = return ()
     setArgs ((nmArg, varg):pargs) = do putValue nmArg varg

@@ -4,6 +4,7 @@ import System.IO
 import System.Environment
 import Parser
 import Interpreter
+import LanguageStructure
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
@@ -43,6 +44,15 @@ parseFile fname = do hFile    <- openFile fname ReadMode
                        (Left e)     -> displayError contents e
                        (Right asts) -> print asts
 
+runProgram :: String -> IO ()
+runProgram fname = do hFile    <- openFile fname ReadMode
+                      contents <- hGetContents hFile
+                      case parseFileStatements contents of
+                        (Left e)     -> displayError contents e
+                        (Right asts) -> case evalMainFile (Seq asts) of
+                                          (Left e)   -> putStrLn e
+                                          (Right io) -> io
+
 fgsc :: IO ()
 fgsc = do putStr "fgsc> "
           fname <- getLine
@@ -67,5 +77,7 @@ main :: IO ()
 main = do args <- getArgs
           if null args
              then repl emptyEnv
-             else mapM_ parseFile args
+             else if length args == 1
+                      then runProgram (head args)
+                      else mapM_ parseFile args
           
