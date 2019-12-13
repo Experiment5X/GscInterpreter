@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1f9d3bff69c405bba71ca9d9ce364c9566df648f3dd53e71dbdd73d252c6e99d
+-- hash: bdc127029c39d457c759fb12e7a1aae349e7b12ccced41a9f9df82efc2237d44
 
 name:           GscInterpreter
 version:        0.1.0.0
@@ -38,6 +38,7 @@ library
       HUnit >=1.6 && <1.7
     , base >=4.7 && <5
     , containers
+    , haskeline
     , mtl >=2.2.0 && <2.3.0
     , parsec >=3.1.13 && <3.2
   default-language: Haskell2010
@@ -54,6 +55,7 @@ executable GscInterpreter-exe
     , HUnit >=1.6 && <1.7
     , base >=4.7 && <5
     , containers
+    , haskeline
     , mtl >=2.2.0 && <2.3.0
     , parsec >=3.1.13 && <3.2
   default-language: Haskell2010
@@ -71,6 +73,7 @@ test-suite GscInterpreter-test
     , HUnit >=1.6 && <1.7
     , base >=4.7 && <5
     , containers
+    , haskeline
     , mtl >=2.2.0 && <2.3.0
     , parsec >=3.1.13 && <3.2
   default-language: Haskell2010

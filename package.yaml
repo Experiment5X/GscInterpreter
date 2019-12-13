@@ -25,6 +25,7 @@ dependencies:
 - HUnit >= 1.6 && < 1.7
 - containers
 - mtl >= 2.2.0 && < 2.3.0
+- haskeline
 
 library:
   source-dirs: src

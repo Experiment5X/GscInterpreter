@@ -12,6 +12,7 @@ import Text.ParserCombinators.Parsec.Error
 import Text.Parsec.Error
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import qualified Data.Map as Map
+import System.Console.Haskeline
 
 gsc :: IO ()
 gsc = do putStr "gsc> "
@@ -60,18 +61,21 @@ fgsc = do putStr "fgsc> "
           fgsc
           
 repl :: GscEnv -> IO ()
-repl env = do putStr "~> "
-              hFlush stdout
-              s <- getLine
-              case parseStatement s of
-                (Left e)     -> case parseExpression s of
-                                  (Left err)   -> print err >> repl env
-                                  (Right expr) -> case evalExpr2 expr env of
-                                                    (Left err) -> putStrLn err >> repl env
-                                                    (Right v)  -> print v      >> repl env
-                (Right stmt) -> case evalStmt2 stmt env of
-                                  (Left err)   -> putStrLn err >> repl env
-                                  (Right env') -> repl env'
+repl e = runInputT defaultSettings (runRepl e)
+  where
+    runRepl :: GscEnv -> InputT IO ()
+    runRepl env = do ms <- getInputLine "~> "
+                     case ms of
+                       Nothing  -> runRepl env
+                       (Just s) -> case parseStatement s of
+                                     (Left e)     -> case parseExpression s of
+                                                       (Left err)   -> outputStrLn (show err) >> runRepl env
+                                                       (Right expr) -> case evalExpr2 expr env of
+                                                                         (Left err) -> outputStrLn err      >> runRepl env
+                                                                         (Right v)  -> outputStrLn (show v) >> runRepl env 
+                                     (Right stmt) -> case evalStmt2 stmt env of
+                                                       (Left err)   -> outputStrLn err >> runRepl env
+                                                       (Right env') -> runRepl env'
 
 main :: IO ()
 main = do args <- getArgs
