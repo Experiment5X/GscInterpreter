@@ -71,7 +71,7 @@ repl env = do putStr "~> "
                                                     (Right v)  -> print v      >> repl env
                 (Right stmt) -> case evalStmt2 stmt env of
                                   (Left err)   -> putStrLn err >> repl env
-                                  (Right env') -> print env'   >> repl env'
+                                  (Right env') -> repl env'
 
 main :: IO ()
 main = do args <- getArgs

@@ -94,7 +94,7 @@ data Expr = Var LValue
            | AnimRef Expr
            | Binary BinOp Expr Expr
            | FunctionCallE (Maybe LValue) FuncCallType (Either LValue FuncDereference) [Expr]
-           | FuncNameE Qualifier
+           | FuncReference (Maybe Qualifier) String
            | BNot Expr
              deriving (Show, Eq, Ord)
 

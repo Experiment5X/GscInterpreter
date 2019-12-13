@@ -123,24 +123,24 @@ data Value = VString String
            | VVoid          -- used for returning nothing from a function
            | VRef Integer
            | VStore (Map Integer RVObj)
-           | VFunctionDefs (Map Identifier IFunctionDef)
+           | VFunctionDefs (Map Identifier Value)
+           | VFunctionDef [Identifier] GscEnv Stmt 
+               -- list of parameter names
+               -- the environment where the function is defined
+               -- the statement inside the function
            deriving (Eq, Ord)
 
 instance Show Value where
-  show (VString s)        = s
-  show (VList vs)         = "[" ++ show vs ++ "]"
-  show (VBool b)          = show b
-  show (VInt i)           = show i
-  show (VDouble d)        = show d
-  show VVoid              = "void"
-  show (VRef o)           = "Object_" ++ show o
-  show (VStore s)         = show s
-  show (VFunctionDefs ds) = show ds
-
-data IFunctionDef = IFunctionDef [Identifier] GscEnv Stmt deriving (Show, Eq, Ord)
-                      -- list of parameter names
-                      -- the environment where the function is defined
-                      -- the statement inside the function
+  show (VString s)             = s
+  show (VList vs)              = "[" ++ show vs ++ "]"
+  show (VBool b)               = show b
+  show (VInt i)                = show i
+  show (VDouble d)             = show d
+  show VVoid                   = "void"
+  show (VRef o)                = "Object_" ++ show o
+  show (VStore s)              = show s
+  show (VFunctionDefs ds)      = show ds
+  show (VFunctionDef args _ _) = "::(" ++ unwords (Prelude.map show args) ++ ")"
 
 type RVObj = Map Value Value
 
@@ -152,14 +152,14 @@ type OpCInt    = Integer -> Integer -> Bool
 type OpCDouble = Double  -> Double  -> Bool
 type OpBool    = Bool    -> Bool    -> Bool
 
-putFunctionDef :: Identifier -> IFunctionDef -> GscM ()
+putFunctionDef :: Identifier -> Value -> GscM ()
 putFunctionDef fname fdef = do fdefs <- getValue functionDefsIdent
                                case fdefs of
                                  (VFunctionDefs defs) -> let defs' = insert fname fdef defs
                                                          in putValue functionDefsIdent (VFunctionDefs defs')
                                  _                    -> gscError "Invalid function defs type"
 
-getFunctionDef :: Identifier -> GscM IFunctionDef
+getFunctionDef :: Identifier -> GscM Value
 getFunctionDef fname = do fdefs <- getValue functionDefsIdent
                           case fdefs of
                             (VFunctionDefs defs) -> case Data.Map.lookup fname defs of
@@ -296,7 +296,7 @@ evalMainFile :: Stmt -> Either String (IO ())
 evalMainFile stmt = runGscMWithEnv evalMain emptyEnv
   where
     evalMain = do evalStmt stmt
-                  evalFunctionCallExpr "main" []
+                  evalFunctionCallExpr Nothing "main" []
                   getIO
 
 evalObjRefLookup :: Value -> Value -> GscM Value
@@ -338,28 +338,38 @@ evalLValueObjRefAndIndex (LValue _ (LValueComp i es:lvcs)) = let idxs = es ++ lv
                                                              in do v <- evalArrMapIndices i (init idxs)
                                                                    return (v, eidx)
 
-evalFunctionCallExpr :: Identifier -> [Expr] -> GscM Value
-evalFunctionCallExpr "print" args = do vargs <- mapM evalExpr args
-                                       let output = unwords (Prelude.map show vargs)
-                                          in do putIO (putStrLn output)
-                                                return VVoid
-evalFunctionCallExpr nm args      = do (IFunctionDef nmArgs fenv stmt) <- getFunctionDef nm
-                                       vargs <- mapM evalExpr args
-                                       if length vargs /= length nmArgs
-                                          then gscError ("Function " ++ nm ++ " takes " ++ show (length nmArgs) ++ " but " ++ show (length vargs) ++ " were supplied")
-                                          else do envOrig <- getEnv
-                                                  setArgs (zip nmArgs vargs)
-                                                  result  <- evalStmt stmt
-                                                  store   <- getValue storeIdent
-                                                  setEnv envOrig
-                                                  putValue storeIdent store
-                                                  case result of
-                                                    (ReturnResult v) -> return v
-                                                    _                -> return VVoid
+handleFunc :: String -> [String] -> GscEnv -> Stmt -> [Expr] -> Value -> GscM Value
+handleFunc nm nmArgs fenv stmt args self = do vargs <- mapM evalExpr args
+                                              if length vargs /= length nmArgs
+                                                 then gscError ("Function " ++ nm ++ " takes " ++ show (length nmArgs) ++ " but " ++ show (length vargs) ++ " were supplied")
+                                                 else do envOrig <- getEnv
+                                                         setArgs (("self", self) : zip nmArgs vargs)
+                                                         result  <- evalStmt stmt
+                                                         store   <- getValue storeIdent
+                                                         setEnv envOrig
+                                                         putValue storeIdent store
+                                                         case result of
+                                                           (ReturnResult v) -> return v
+                                                           _                -> return VVoid
   where
     setArgs []                    = return ()
     setArgs ((nmArg, varg):pargs) = do putValue nmArg varg
                                        setArgs pargs
+ 
+evalFunctionCallExpr :: Maybe LValue -> Identifier -> [Expr] -> GscM Value
+evalFunctionCallExpr Nothing "print" args = do vargs <- mapM evalExpr args
+                                               let output = unwords (Prelude.map show vargs)
+                                                  in do putIO (putStrLn output)
+                                                        return VVoid
+evalFunctionCallExpr Nothing nm args      = do v <- getFunctionDef nm
+                                               case v of
+                                                 (VFunctionDef nmArgs fenv stmt) -> handleFunc nm nmArgs fenv stmt args VVoid
+evalFunctionCallExpr (Just lv) nm args    = do obj <- evalLValue lv
+                                               case obj of
+                                                 (VRef oid) -> do func <- getObjectValue oid nm
+                                                                  case func of
+                                                                    (VFunctionDef nmArgs fenv stmt) -> handleFunc nm nmArgs fenv stmt args obj
+                                                 _          -> gscError "Cannot call funciton on non-object"
 
 evalExpr :: Expr -> GscM Value
 evalExpr (BoolLit b)       = return (VBool b)
@@ -372,11 +382,21 @@ evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 evalBinOp op v1 v2
 evalExpr (Var lv)          = evalLValue lv
 
-evalExpr (FunctionCallE mobj ctype (Left (LValue _ [LValueComp nm []])) args) = evalFunctionCallExpr nm args
+evalExpr (FuncReference Nothing nm)                                           = getFunctionDef nm      
+evalExpr (FunctionCallE mobj ctype (Left (LValue _ [LValueComp nm []])) args) = evalFunctionCallExpr mobj nm args
 
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
+                     
+getObjectValue :: Integer -> Identifier -> GscM Value
+getObjectValue oid nm = do vstore <- getValue storeIdent
+                           case vstore of
+                             (VStore store) -> case Data.Map.lookup oid store of
+                                                 (Just obj) -> case Data.Map.lookup (VString nm) obj of
+                                                                 (Just v) -> return v
+                                                                 Nothing  -> gscError ("Object doesn't have attribute " ++ nm) 
+                                                 Nothing    -> gscError "Invalid object reference" 
 
 evalPutIntoLValue :: Value -> LValue -> GscM StatementResult
 evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v >> return Success
@@ -446,8 +466,8 @@ evalForStmt minit cond mupd stmt = case minit of
 
 evalFunctionDef :: String -> [String] -> Stmt -> GscM StatementResult
 evalFunctionDef nm args body = do env <- getEnv
-                                  let ifunc = IFunctionDef args env body
-                                    in do putFunctionDef nm ifunc
+                                  let vfunc = VFunctionDef args env body
+                                    in do putFunctionDef nm vfunc
                                           return Success
 
 evalSeq :: [Stmt] -> GscM StatementResult

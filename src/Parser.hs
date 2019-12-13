@@ -99,9 +99,6 @@ qualifier :: Parser Qualifier
 qualifier =   try (do path  <- sepBy1 identifier (char '\\')
                       reservedOp "::"
                       return (Qualifier path))
-
-          <|> do reservedOp "::"
-                 return (Qualifier [])
           <|> return (Qualifier [])
           <?> "qualifier"
 
@@ -131,6 +128,7 @@ term :: Parser Expr
 term =   try rvalueExpr
      <|> try (parens expression)
      <|> try (fmap Var lvalue)
+     <|> try funcReference
      <?> "term"
 
 rvalueExpr :: Parser Expr
@@ -149,6 +147,9 @@ value :: Parser Expr
 value =   expression
       <|> term
 
+funcReference :: Parser Expr
+funcReference = do reservedOp "::"
+                   FuncReference Nothing <$> identifier
 
 termIndex :: Parser Expr
 termIndex = try functionCall
