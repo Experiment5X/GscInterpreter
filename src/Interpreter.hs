@@ -304,10 +304,13 @@ evalObjRefLookup :: Value -> Value -> GscM Value
 evalObjRefLookup idx (VRef ref) = do vstore <- getValue storeIdent
                                      case vstore of
                                        (VStore store) -> case Data.Map.lookup ref store of
-                                                           (Just obj) -> case Data.Map.lookup idx obj of
-                                                                           (Just v) -> return v
-                                                                           Nothing  -> gscError ("No value at index " ++ show idx)
+                                                           (Just obj) -> getObjVal idx obj
                                                            Nothing    -> gscError "Invalid object reference"
+  where
+    getObjVal (VString "size") obj = return (VInt (toInteger (Data.Map.size obj)))
+    getObjVal idx obj              = case Data.Map.lookup idx obj of
+                                       (Just v) -> return v
+                                       Nothing  -> gscError ("No value at index " ++ show idx)
 evalObjRefLookup _   _          = gscError "Variable is not indexible"
 
 lvCompsToExprs :: [LValueComp] -> [Expr]
@@ -356,7 +359,7 @@ handleFunc nm nmArgs fenv stmt args self = do vargs <- mapM evalExpr args
     setArgs []                    = return ()
     setArgs ((nmArg, varg):pargs) = do putValue nmArg varg
                                        setArgs pargs
- 
+
 evalFunctionCallExpr :: Maybe LValue -> Identifier -> [Expr] -> GscM Value
 evalFunctionCallExpr Nothing "print" args = do vargs <- mapM evalExpr args
                                                let output = unwords (Prelude.map show vargs)
@@ -383,21 +386,21 @@ evalExpr (Binary op e1 e2) = do v1 <- evalExpr e1
                                 evalBinOp op v1 v2
 evalExpr (Var lv)          = evalLValue lv
 
-evalExpr (FuncReference Nothing nm)                                           = getFunctionDef nm      
+evalExpr (FuncReference Nothing nm)                                           = getFunctionDef nm
 evalExpr (FunctionCallE mobj ctype (Left (LValue _ [LValueComp nm []])) args) = evalFunctionCallExpr mobj nm args
 
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
-                     
+
 getObjectValue :: Integer -> Identifier -> GscM Value
 getObjectValue oid nm = do vstore <- getValue storeIdent
                            case vstore of
                              (VStore store) -> case Data.Map.lookup oid store of
                                                  (Just obj) -> case Data.Map.lookup (VString nm) obj of
                                                                  (Just v) -> return v
-                                                                 Nothing  -> gscError ("Object doesn't have attribute " ++ nm) 
-                                                 Nothing    -> gscError "Invalid object reference" 
+                                                                 Nothing  -> gscError ("Object doesn't have attribute " ++ nm)
+                                                 Nothing    -> gscError "Invalid object reference"
 
 evalPutIntoLValue :: Value -> LValue -> GscM StatementResult
 evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v >> return Success
