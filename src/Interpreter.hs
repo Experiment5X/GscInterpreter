@@ -190,7 +190,8 @@ evalListLit = mkObj (VInt 0) empty
                                          mkObj (VInt (succ i)) (insert (VInt i) v obj) exprs
 
 evalAdd :: Value -> Value -> GscM Value
-evalAdd = evalOpArith (+) (+)
+evalAdd (VString s1) (VString s2) = return (VString (s1 ++ s2))
+evalAdd v1           v2           = evalOpArith (+) (+) v1 v2
 
 evalSub :: Value -> Value -> GscM Value
 evalSub = evalOpArith (-) (-)

@@ -94,6 +94,7 @@ evalExprTests =
               , evalExprT (parseExprT "5 == 6") ~?= VBool False
               , evalExprT (parseExprT "5 == 5") ~?= VBool True
               , evalExprT (parseExprT "5.6 > 5") ~?= VBool True
+              , evalExprT (parseExprT "\"hello \" + \"world\"") ~?= VString "hello world"
               ]
               
 evalStmtTests :: Test
