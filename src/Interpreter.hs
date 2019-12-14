@@ -5,6 +5,7 @@ module Interpreter where
 
 import Data.Map
 import Data.Bits
+import qualified Data.List
 import Control.Monad.Except
 import LanguageStructure
 
@@ -131,7 +132,7 @@ data Value = VString String
            deriving (Eq, Ord)
 
 instance Show Value where
-  show (VString s)             = s
+  show (VString s)             = show s
   show (VList vs)              = "[" ++ show vs ++ "]"
   show (VBool b)               = show b
   show (VInt i)                = show i
@@ -365,9 +366,14 @@ evalFunctionCallExpr Nothing "print" args = do vargs <- mapM evalExpr args
                                                let output = unwords (Prelude.map show vargs)
                                                   in do putIO (putStrLn output)
                                                         return VVoid
-evalFunctionCallExpr Nothing nm args      = do v <- getFunctionDef nm
-                                               case v of
-                                                 (VFunctionDef nmArgs fenv stmt) -> handleFunc nm nmArgs fenv stmt args VVoid
+evalFunctionCallExpr Nothing nm args      = handleLibFunc
+  where
+    handleLibFunc = case Data.Map.lookup nm libFunctions of
+                      (Just f) -> do vargs <- mapM evalExpr args
+                                     f vargs
+                      Nothing  -> do v <- getFunctionDef nm
+                                     case v of
+                                       (VFunctionDef nmArgs fenv stmt) -> handleFunc nm nmArgs fenv stmt args VVoid
 evalFunctionCallExpr (Just lv) nm args    = do obj <- evalLValue lv
                                                case obj of
                                                  (VRef oid) -> do func <- getObjectValue oid nm
@@ -400,14 +406,28 @@ evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
                      evalExpr expr
 
+getObject :: Integer -> GscM (Map Value Value)
+getObject oid = do vstore <- getValue storeIdent
+                   case vstore of
+                     (VStore store) -> case Data.Map.lookup oid store of
+                                         (Just obj) -> return obj
+                                         Nothing    -> gscError "Invalid object reference"
+
 getObjectValue :: Integer -> Identifier -> GscM Value
-getObjectValue oid nm = do vstore <- getValue storeIdent
-                           case vstore of
-                             (VStore store) -> case Data.Map.lookup oid store of
-                                                 (Just obj) -> case Data.Map.lookup (VString nm) obj of
-                                                                 (Just v) -> return v
-                                                                 Nothing  -> gscError ("Object doesn't have attribute " ++ nm)
-                                                 Nothing    -> gscError "Invalid object reference"
+getObjectValue oid nm = do obj <- getObject oid
+                           case Data.Map.lookup (VString nm) obj of
+                             (Just v) -> return v
+                             Nothing  -> gscError ("Object doesn't have attribute " ++ nm)
+
+evalPutIntoObj :: Value -> Value -> Value -> GscM ()
+evalPutIntoObj vidx v (VRef ref) = do vstore <- getValue storeIdent
+                                      case vstore of
+                                        (VStore store) -> case Data.Map.lookup ref store of
+                                                            (Just obj) -> let obj'   = Data.Map.insert vidx v obj
+                                                                              store' = Data.Map.insert ref obj' store
+                                                                              in putValue storeIdent (VStore store')
+                                                            Nothing    -> gscError "Invalid object reference"
+evalPutIntoObj _    _ _          = gscError "Type is not indexable, must be an object/array"
 
 evalPutIntoLValue :: Value -> LValue -> GscM StatementResult
 evalPutIntoLValue v (LValue q [LValueComp i []])  = putValue i v >> return Success
@@ -415,16 +435,6 @@ evalPutIntoLValue v lv                            = do (objRef, eidx) <- evalLVa
                                                        vidx   <- evalExpr eidx
                                                        evalPutIntoObj vidx v objRef
                                                        return Success
-  where
-    evalPutIntoObj :: Value -> Value -> Value -> GscM ()
-    evalPutIntoObj vidx v (VRef ref) = do vstore <- getValue storeIdent
-                                          case vstore of
-                                            (VStore store) -> case Data.Map.lookup ref store of
-                                                                (Just obj) -> let obj'   = Data.Map.insert vidx v obj
-                                                                                  store' = Data.Map.insert ref obj' store
-                                                                                  in putValue storeIdent (VStore store')
-                                                                Nothing    -> gscError "Invalid object reference"
-    evalPutIntoObj _    _ _          = gscError "Type is not indexable, must be an object/array"
 
 evalAssignEquals :: (Value -> Value -> GscM Value) -> LValue -> Expr -> GscM StatementResult
 evalAssignEquals evalOp (LValue _ [LValueComp i []]) expr = do v1 <- getValue i
@@ -550,3 +560,29 @@ runGscMWithEnv (GscM f) env = case f (startThreadStateEnv env) of
 runGscM :: GscM a -> Either String a
 runGscM mgsc = let env = Data.Map.fromList [("a", VInt 5), ("b", VInt 23)]
                in runGscMWithEnv mgsc env
+
+
+-- LIBRARY FUNCTIONS
+
+
+type LibFunction = [Value] -> GscM Value
+
+libFunctions :: Map String LibFunction
+libFunctions = fromList [("append", libAppend)]
+
+libAppend :: LibFunction
+libAppend [VRef oid, v] = do obj <- getObject oid
+                             let intIndices    = Prelude.map negVIntVal (Prelude.filter matchInts (keys obj))
+                                 sortedIndices = Data.List.sort intIndices
+                                 nextIndex     = if Prelude.null sortedIndices
+                                                    then 0
+                                                    else -(head sortedIndices)
+                               in do evalPutIntoObj (VInt nextIndex) v (VRef oid)
+                                     return VVoid
+  where
+    matchInts (VInt _) = True
+    matchInts _        = False
+
+    negVIntVal (VInt i) = -i
+
+libAppend _               = gscError "append() must take an array and a value to append"

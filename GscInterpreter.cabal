@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bdc127029c39d457c759fb12e7a1aae349e7b12ccced41a9f9df82efc2237d44
+-- hash: edb8893426c3b2c54e855fc05a8a8f8d0833ac7af4610361b9b273c18122c4e5
 
 name:           GscInterpreter
 version:        0.1.0.0
@@ -27,7 +27,6 @@ source-repository head
 library
   exposed-modules:
       Interpreter
-      InterpreterV2
       LanguageStructure
       Parser
   other-modules:
