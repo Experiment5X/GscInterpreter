@@ -192,6 +192,7 @@ evalListLit = mkObj (VInt 0) empty
 
 evalAdd :: Value -> Value -> GscM Value
 evalAdd (VString s1) (VString s2) = return (VString (s1 ++ s2))
+evalAdd (VString s1) v2           = return (VString (s1 ++ show v2))
 evalAdd v1           v2           = evalOpArith (+) (+) v1 v2
 
 evalSub :: Value -> Value -> GscM Value
@@ -363,9 +364,13 @@ handleFunc nm nmArgs fenv stmt args self = do vargs <- mapM evalExpr args
     setArgs ((nmArg, varg):pargs) = do putValue nmArg varg
                                        setArgs pargs
 
+toStrPrint :: Value -> String
+toStrPrint (VString s) = s
+toStrPrint v           = show v
+
 evalFunctionCallExpr :: Maybe LValue -> Identifier -> [Expr] -> GscM Value
 evalFunctionCallExpr Nothing "print" args = do vargs <- mapM evalExpr args
-                                               let output = unwords (Prelude.map show vargs)
+                                               let output = unwords (Prelude.map toStrPrint vargs)
                                                   in do putIO (putStrLn output)
                                                         return VVoid
 evalFunctionCallExpr Nothing nm args      = handleLibFunc
