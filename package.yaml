@@ -26,12 +26,13 @@ dependencies:
 - containers
 - mtl >= 2.2.0 && < 2.3.0
 - haskeline
+- cmdargs
 
 library:
   source-dirs: src
 
 executables:
-  GscInterpreter-exe:
+  codgsc:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

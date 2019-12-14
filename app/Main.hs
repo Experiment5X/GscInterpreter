@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Main where
 
 import System.IO
@@ -13,13 +15,14 @@ import Text.Parsec.Error
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import qualified Data.Map as Map
 import System.Console.Haskeline
+import System.Console.CmdArgs
 
 gsc :: IO ()
 gsc = do putStr "gsc> "
          s <- getLine
          case parseStatement s of
            (Left e)    -> print e
-           (Right ast) -> print ast
+           (Right ast) -> putStrLn "No errors"
          gsc
 
 displayError :: String -> ParseError -> IO ()
@@ -38,12 +41,14 @@ displayError fc err = do putStr labeledls
     lineIter l' (ln, ls) = (pred ln, (show ln ++ "    " ++ l') : ls)
 
 
-parseFile :: String -> IO ()
-parseFile fname = do hFile    <- openFile fname ReadMode
-                     contents <- hGetContents hFile
-                     case parseFileStatements contents of
-                       (Left e)     -> displayError contents e
-                       (Right asts) -> print asts
+parseFile :: Bool -> String -> IO ()
+parseFile past fname = do hFile    <- openFile fname ReadMode
+                          contents <- hGetContents hFile
+                          case parseFileStatements contents of
+                            (Left e)     -> displayError contents e
+                            (Right asts) -> if past 
+                                               then print asts
+                                               else return ()
 
 runProgram :: String -> IO ()
 runProgram fname = do hFile    <- openFile fname ReadMode
@@ -57,7 +62,7 @@ runProgram fname = do hFile    <- openFile fname ReadMode
 fgsc :: IO ()
 fgsc = do putStr "fgsc> "
           fname <- getLine
-          parseFile fname
+          parseFile True fname
           fgsc
           
 repl :: GscEnv -> IO ()
@@ -77,11 +82,37 @@ repl e = runInputT defaultSettings (runRepl e)
                                                        (Left err)   -> outputStrLn err >> runRepl env
                                                        (Right env') -> runRepl env'
 
+data Options = Options {
+  files    :: [String],
+  check    :: Bool,
+  printAst :: Bool
+} deriving (Data, Typeable)
+
+options :: Options
+options = Options { files = []
+                              &= args
+                              &= typFile
+                  , check = False
+                         &= help "Only check the files for syntax"
+                  , printAst = False
+                         &= help "Print the parsed AST data structure when checking for syntax errors"
+                  }
+       &= summary "Call of Duty Gsc Interpreter v1.0, Adam Spindler"
+       &= program "codgsc"
+
 main :: IO ()
-main = do args <- getArgs
-          if null args
-             then repl emptyEnv
-             else if length args == 1
-                      then runProgram (head args)
-                      else mapM_ parseFile args
-          
+main = do
+  opts <- cmdArgs options
+
+  let fs = files    opts
+      c  = check    opts
+      p  = printAst opts
+
+  handleFiles c p fs
+
+handleFiles :: Bool -> Bool -> [String] -> IO ()
+handleFiles _     _ []  = repl emptyEnv
+handleFiles True  p fs  = mapM_ (parseFile p) fs
+handleFiles False _ [f] = runProgram f
+handleFiles False _ _   = putStrLn "Unable to interpret more than one file, it's currently unsupported."
+
