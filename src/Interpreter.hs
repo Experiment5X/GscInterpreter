@@ -375,6 +375,12 @@ evalFunctionCallExpr (Just lv) nm args    = do obj <- evalLValue lv
                                                                     (VFunctionDef nmArgs fenv stmt) -> handleFunc nm nmArgs fenv stmt args obj
                                                  _          -> gscError "Cannot call funciton on non-object"
 
+evalFuncDereference :: LValue -> [Expr] -> GscM Value
+evalFuncDereference lvfunc args = do func <- evalLValue lvfunc
+                                     case func of
+                                       (VFunctionDef nmArgs fenv stmt) -> handleFunc "anonymous" nmArgs fenv stmt args VVoid
+                                       _                               -> gscError "Cannot call non-function value"
+
 evalExpr :: Expr -> GscM Value
 evalExpr (BoolLit b)       = return (VBool b)
 evalExpr (IntLit i)        = return (VInt i)
@@ -388,6 +394,7 @@ evalExpr (Var lv)          = evalLValue lv
 
 evalExpr (FuncReference Nothing nm)                                           = getFunctionDef nm
 evalExpr (FunctionCallE mobj ctype (Left (LValue _ [LValueComp nm []])) args) = evalFunctionCallExpr mobj nm args
+evalExpr (FunctionCallE Nothing ctype (Right (FuncDereference lv)) args)      = evalFuncDereference lv args
 
 evalMExpr :: GscM Expr -> GscM Value
 evalMExpr mexpr = do expr <- mexpr
