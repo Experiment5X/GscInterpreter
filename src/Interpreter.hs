@@ -347,12 +347,14 @@ handleFunc :: String -> [String] -> GscEnv -> Stmt -> [Expr] -> Value -> GscM Va
 handleFunc nm nmArgs fenv stmt args self = do vargs <- mapM evalExpr args
                                               if length vargs /= length nmArgs
                                                  then gscError ("Function " ++ nm ++ " takes " ++ show (length nmArgs) ++ " but " ++ show (length vargs) ++ " were supplied")
-                                                 else do envOrig <- getEnv
+                                                 else do envOrig   <- getEnv
                                                          setArgs (("self", self) : zip nmArgs vargs)
-                                                         result  <- evalStmt stmt
-                                                         store   <- getValue storeIdent
+                                                         result    <- evalStmt stmt
+                                                         store     <- getValue storeIdent
+                                                         nextObjId <- getValue nextObjIdIdent
                                                          setEnv envOrig
                                                          putValue storeIdent store
+                                                         putValue nextObjIdIdent nextObjId
                                                          case result of
                                                            (ReturnResult v) -> return v
                                                            _                -> return VVoid
@@ -576,7 +578,7 @@ libAppend [VRef oid, v] = do obj <- getObject oid
                                  sortedIndices = Data.List.sort intIndices
                                  nextIndex     = if Prelude.null sortedIndices
                                                     then 0
-                                                    else -(head sortedIndices)
+                                                    else (-(head sortedIndices)) + 1
                                in do evalPutIntoObj (VInt nextIndex) v (VRef oid)
                                      return VVoid
   where
