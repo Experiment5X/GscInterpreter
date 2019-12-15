@@ -35,6 +35,8 @@ main()
     s2 = create_sphere("My other sphere", 5);
 
     s1 display();
+    print(s1);
     print();
     s2 display();
+    print(s2);
 }

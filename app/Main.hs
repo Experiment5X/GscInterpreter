@@ -75,9 +75,9 @@ repl e = runInputT defaultSettings (runRepl e)
                        (Just s) -> case parseStatement s of
                                      (Left e)     -> case parseExpression s of
                                                        (Left err)   -> outputStrLn (show err) >> runRepl env
-                                                       (Right expr) -> case evalExpr2 expr env of
-                                                                         (Left err) -> outputStrLn err      >> runRepl env
-                                                                         (Right v)  -> outputStrLn (show v) >> runRepl env 
+                                                       (Right expr) -> case evalExprToString expr env of
+                                                                         (Left err)    -> outputStrLn err  >> runRepl env
+                                                                         (Right vstr)  -> outputStrLn vstr >> runRepl env 
                                      (Right stmt) -> case evalStmt2 stmt env of
                                                        (Left err)   -> outputStrLn err >> runRepl env
                                                        (Right env') -> runRepl env'

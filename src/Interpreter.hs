@@ -289,6 +289,23 @@ evalBinOp NotEqual   = evalNotEq
 evalBinOp GreaterEq  = evalGreaterEq
 evalBinOp Greater    = evalGreater
 
+valToString :: Value -> GscM String
+valToString (VRef oid) = do obj <- getObject oid
+                            let kvs      = toList obj
+                                (ks, vs) = unzip kvs
+                            kstrs <- mapM valToString ks
+                            vstrs <- mapM valToString vs
+                            let kvstrs   = Prelude.map (\ (k, v) -> k ++ ": " ++ v) (zip kstrs vstrs)
+                                str      = Data.List.intercalate ", " kvstrs
+                            return ("[" ++ str ++ "]")
+valToString v          = return (show v)
+
+evalExprToString :: Expr -> GscEnv -> Either String String
+evalExprToString expr = runGscMWithEnv evalToString
+  where
+    evalToString = do v <- evalExpr expr
+                      valToString v
+
 evalExpr2 :: Expr -> GscEnv -> Either String Value
 evalExpr2 expr = runGscMWithEnv (evalExpr expr)
 
@@ -364,13 +381,14 @@ handleFunc nm nmArgs fenv stmt args self = do vargs <- mapM evalExpr args
     setArgs ((nmArg, varg):pargs) = do putValue nmArg varg
                                        setArgs pargs
 
-toStrPrint :: Value -> String
-toStrPrint (VString s) = s
-toStrPrint v           = show v
+toStrPrint :: Value -> GscM String
+toStrPrint (VString s) = return s
+toStrPrint v           = valToString v
 
 evalFunctionCallExpr :: Maybe LValue -> Identifier -> [Expr] -> GscM Value
 evalFunctionCallExpr Nothing "print" args = do vargs <- mapM evalExpr args
-                                               let output = unwords (Prelude.map toStrPrint vargs)
+                                               strs  <- mapM toStrPrint vargs
+                                               let output = unwords strs
                                                   in do putIO (putStrLn output)
                                                         return VVoid
 evalFunctionCallExpr Nothing nm args      = handleLibFunc
