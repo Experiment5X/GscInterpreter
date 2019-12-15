@@ -85,6 +85,7 @@ parseStatementTests =
                     , parseStatementT "/# #/" ~?= DebugBlock (Seq [])
                     , parseStatementT ";;;" ~?= Seq [Seq [],Seq [],Seq []]
                     , parseStatementT "childthread noself_delayCall( delay );" ~?= FunctionCallS (FunctionCallE Nothing ChildThread (Left (LValue (Qualifier []) [LValueComp "noself_delayCall" []])) [Var (LValue (Qualifier []) [LValueComp "delay" []])])
+                    , parseStatementT "a = b*-1;" ~?= Assign (LValue (Qualifier []) [LValueComp "a" []]) (Binary Multiply (Var (LValue (Qualifier []) [LValueComp "b" []])) (Neg (IntLit 1)))
                     ]
                     
 evalExprTests :: Test

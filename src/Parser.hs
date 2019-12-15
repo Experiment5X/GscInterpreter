@@ -74,8 +74,22 @@ checkDot s = do symbol s
                 try (lookAhead dot)
                 return ()
 
+-- if the operator is immediately followed by a negated variable then 
+-- the parser had trouble before, as in this expression:
+-- a = b*-1;
+checkDash :: String -> Parser ()
+checkDash s = do symbol s
+                 if s == "-"
+                    then fail ""
+                    else do try (lookAhead singleDash)
+                            return ()
+  where
+    singleDash = do symbol "-"
+                    c <- anyChar
+                    when (c == '-') (fail "Cannot have double dash here")
+
 regularOrDot :: String -> Parser ()
-regularOrDot s = choice [reservedOp s, try (checkDot s)]
+regularOrDot s = choice [reservedOp s, try (checkDot s), try (checkDash s)]
 
 operators = getOperators regularOrDot
 
