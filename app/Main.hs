@@ -16,18 +16,20 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 import qualified Data.Map as Map
 import System.Console.Haskeline
 import System.Console.CmdArgs
+import Control.Monad
 
 gsc :: IO ()
 gsc = do putStr "gsc> "
          s <- getLine
          case parseStatement s of
            (Left e)    -> print e
-           (Right ast) -> putStrLn "No errors"
+           (Right ast) -> print ast
          gsc
 
-displayError :: String -> ParseError -> IO ()
-displayError fc err = do putStr labeledls
-                         print err
+displayError :: String -> String -> ParseError -> IO ()
+displayError fname fc err = do putStrLn fname
+                               putStr labeledls
+                               print err
   where
     lns       = lines fc
     l         = sourceLine (errorPos err)
@@ -45,16 +47,14 @@ parseFile :: Bool -> String -> IO ()
 parseFile past fname = do hFile    <- openFile fname ReadMode
                           contents <- hGetContents hFile
                           case parseFileStatements contents of
-                            (Left e)     -> displayError contents e
-                            (Right asts) -> if past 
-                                               then print asts
-                                               else return ()
+                            (Left e)     -> displayError fname contents e
+                            (Right asts) -> when past (print asts)
 
 runProgram :: String -> IO ()
 runProgram fname = do hFile    <- openFile fname ReadMode
                       contents <- hGetContents hFile
                       case parseFileStatements contents of
-                        (Left e)     -> displayError contents e
+                        (Left e)     -> displayError fname contents e
                         (Right asts) -> case evalMainFile (Seq asts) of
                                           (Left e)   -> putStrLn e
                                           (Right io) -> io
