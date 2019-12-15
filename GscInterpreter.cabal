@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 87c81fc6898b6a860a9e5fc5399c6b84645c165f9f74f5a74c9beef1e85a5874
+-- hash: 7b0207f866722e8df3fd0b7c3a92ea93f16136eaa96e7cdf74f3bd4aa37066a6
 
 name:           GscInterpreter
 version:        0.1.0.0
@@ -39,7 +39,6 @@ library
     , cmdargs
     , containers
     , haskeline
-    , mtl >=2.2.0 && <2.3.0
     , parsec >=3.1.13 && <3.2
   default-language: Haskell2010
 
@@ -57,7 +56,6 @@ executable codgsc
     , cmdargs
     , containers
     , haskeline
-    , mtl >=2.2.0 && <2.3.0
     , parsec >=3.1.13 && <3.2
   default-language: Haskell2010
 
@@ -76,6 +74,5 @@ test-suite GscInterpreter-test
     , cmdargs
     , containers
     , haskeline
-    , mtl >=2.2.0 && <2.3.0
     , parsec >=3.1.13 && <3.2
   default-language: Haskell2010

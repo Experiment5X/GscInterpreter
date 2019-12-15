@@ -6,7 +6,6 @@ module Interpreter where
 import Data.Map
 import Data.Bits
 import qualified Data.List
-import Control.Monad.Except
 import LanguageStructure
 
 type Identifier = String
