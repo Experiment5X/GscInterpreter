@@ -74,7 +74,7 @@ checkDot s = do symbol s
                 try (lookAhead dot)
                 return ()
 
--- if the operator is immediately followed by a negated variable then 
+-- if the operator is immediately followed by a negated variable then
 -- the parser had trouble before, as in this expression:
 -- a = b*-1;
 checkDash :: String -> Parser ()
@@ -201,16 +201,19 @@ lvalueComponent :: Parser LValueComp
 lvalueComponent = LValueComp <$> identifier <*> parseIndices
 
 lvalue :: Parser LValue
-lvalue =   do q     <- qualifier
-              comps <- sepBy1 lvalueComponent dot
-              return (LValue q comps)
+lvalue =   lv
+       <|> try (parens lv)
        <?> "l-value"
+  where
+    lv = do q     <- qualifier
+            comps <- sepBy1 lvalueComponent dot
+            return (LValue q comps)
 
 statement :: Parser Stmt
 statement = do whiteSpace
                helper
   where
-    helper =   parens statement
+    helper =   try (parens statement)
            <|> do stmts <- sequenceOfStmt
                   if length stmts == 1
                      then return (head stmts)
